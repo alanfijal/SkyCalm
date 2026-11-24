@@ -10,15 +10,21 @@ variable "observation_window" {
   type    = object({ start = string, end = string })
   default = null
 }
+variable "discovery_window" {
+  type    = object({ start = string, end = string })
+  default = null
+}
 module "forecast" {
   source             = "../../modules/forecast"
   account_id         = var.account_id
   image_digest       = var.image_digest
   observation_window = var.observation_window
+  discovery_window   = var.discovery_window
   lambda_zip         = abspath("${path.root}/../../../build/forecast.zip")
   web_directory      = abspath("${path.root}/../../../web/dist")
   archive_directory  = abspath("${path.root}/../../../services/forecast/data/replay")
 }
+output "pipeline_operator_policy" { value = module.forecast.pipeline_operator_policy }
 output "website" { value = module.forecast.website }
 output "api" { value = module.forecast.api }
 output "grid_run_request" { value = module.forecast.grid_run_request }

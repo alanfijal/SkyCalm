@@ -1,0 +1,221 @@
+{
+  "Comment": "Build a complete grid, publish readiness, and advance the live forecast.",
+  "StartAt": "Acquire grid worker",
+  "TimeoutSeconds": 900,
+  "States": {
+    "Acquire grid worker": {
+      "Type": "Task",
+      "Resource": "${worker}",
+      "Parameters": {
+        "action": "claim",
+        "job.$": "$.job"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": "$.lease",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.failure",
+          "Next": "Record failure"
+        }
+      ],
+      "Next": "Worker available?"
+    },
+    "Worker available?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.lease.acquired",
+          "BooleanEquals": true,
+          "Next": "Build weather grid"
+        }
+      ],
+      "Default": "Wait for worker"
+    },
+    "Wait for worker": {
+      "Type": "Wait",
+      "Seconds": 15,
+      "Next": "Acquire grid worker"
+    },
+    "Build weather grid": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 650,
+      "Parameters": {
+        "Cluster": "${cluster}",
+        "TaskDefinition": "${task}",
+        "LaunchType": "FARGATE",
+        "PlatformVersion": "1.4.0",
+        "ClientToken.$": "$.job.jobId",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "Subnets": [
+              "${subnet}"
+            ],
+            "SecurityGroups": [
+              "${security_group}"
+            ]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "grid",
+              "Command.$": "$.lease.command"
+            }
+          ]
+        }
+      },
+      "ResultPath": "$.task",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.failure",
+          "Next": "Record failure"
+        }
+      ],
+      "Next": "Grid exited cleanly?"
+    },
+    "Grid exited cleanly?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.task.Containers[0].ExitCode",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.task.Containers[0].ExitCode",
+              "NumericEquals": 0
+            }
+          ],
+          "Next": "Verify tiles"
+        }
+      ],
+      "Default": "Grid exit failure"
+    },
+    "Grid exit failure": {
+      "Type": "Pass",
+      "Result": {
+        "Error": "GridContainerExit"
+      },
+      "ResultPath": "$.failure",
+      "Next": "Record failure"
+    },
+    "Verify tiles": {
+      "Type": "Task",
+      "Resource": "${worker}",
+      "Parameters": {
+        "action": "verify",
+        "job.$": "$.job"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.failure",
+          "Next": "Record failure"
+        }
+      ],
+      "Next": "Publish tiles ready"
+    },
+    "Publish tiles ready": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [
+          {
+            "EventBusName": "${bus}",
+            "Source": "skycalm.forecast",
+            "DetailType": "forecast.tiles.ready",
+            "Detail.$": "States.JsonToString($.job)"
+          }
+        ]
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": null,
+      "Next": "Release worker"
+    },
+    "Release worker": {
+      "Type": "Task",
+      "Resource": "${worker}",
+      "Parameters": {
+        "action": "sent",
+        "job.$": "$.job"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": null,
+      "End": true
+    },
+    "Record failure": {
+      "Type": "Task",
+      "Resource": "${worker}",
+      "Parameters": {
+        "action": "failed",
+        "job.$": "$.job",
+        "reason.$": "$.failure.Error"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": null,
+      "Next": "Forecast failed"
+    },
+    "Forecast failed": {
+      "Type": "Fail",
+      "Error": "ForecastPipelineFailed"
+    }
+  }
+}
