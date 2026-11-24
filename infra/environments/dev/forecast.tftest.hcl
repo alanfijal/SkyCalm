@@ -19,12 +19,16 @@ run "forecast_controls" {
     error_message = "The grid task must stay within its compute and outbound HTTPS limits."
   }
   assert {
-    condition     = length(aws_apigatewayv2_route.forecast) == 3 && aws_lambda_function.forecast.timeout == 15 && aws_cloudwatch_log_group.api.retention_in_days == 7
+    condition     = length(aws_apigatewayv2_route.forecast) == 4 && aws_lambda_function.forecast.timeout == 15 && aws_cloudwatch_log_group.api.retention_in_days == 7
     error_message = "Check the public API route count, timeout and log retention."
   }
   assert {
-    condition     = length(aws_s3_object.replay) == 14 && aws_dynamodb_table.runs.billing_mode == "PAY_PER_REQUEST" && aws_cloudfront_origin_access_control.web.signing_behavior == "always"
+    condition     = length(aws_s3_object.replay) == 70 && length(aws_s3_object.observation_replay) == 5 && length(aws_s3_object.historical_reports) == 5 && aws_dynamodb_table.runs.billing_mode == "PAY_PER_REQUEST" && aws_cloudfront_origin_access_control.web.signing_behavior == "always"
     error_message = "The archive needs its 13 leads and manifest, a pay-per-request index and a signed web origin."
+  }
+  assert {
+    condition     = aws_athena_workgroup.observations.configuration[0].enforce_workgroup_configuration && aws_athena_workgroup.observations.configuration[0].bytes_scanned_cutoff_per_query == 10485760
+    error_message = "The weather queries need a workgroup-enforced 10 MiB scan limit."
   }
 }
 run "reject_mutable_image" {

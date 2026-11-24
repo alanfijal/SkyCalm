@@ -27,13 +27,15 @@ def clients():
     )
 
 
-def publish(snapshot, raw, s3, bucket, table):
+def publish(snapshot, raw, s3, bucket, table, *, live=True):
     version, payloads = objects(snapshot, raw)
     for key, body in payloads.items():
         extra = {"ContentEncoding": "gzip"} if key.endswith(".gz") else {}
         if key.startswith("observations/history/"):
             extra["Tagging"] = "Retention=working"
         s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json", **extra)
+    if not live:
+        return version
     try:
         table.update_item(
             Key={"pk": "observations#awc"},
@@ -50,7 +52,9 @@ def handler(event, context):
     as_of = capture_time(event.get("at"))
     data, raw = collect(as_of)
     s3, table = clients()
-    version = publish(data, raw, s3, os.environ["SKYCALM_BUCKET"], table)
+    version = publish(
+        data, raw, s3, os.environ["SKYCALM_BUCKET"], table, live=event.get("at") is None
+    )
     result = {
         "event": "observations.ready",
         "version": version,

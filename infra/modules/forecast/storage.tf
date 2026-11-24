@@ -55,6 +55,26 @@ resource "aws_s3_bucket_lifecycle_configuration" "weather" {
     filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 1 }
   }
+  dynamic "rule" {
+    for_each = { "observations/raw/" = 7, "observations/snapshots/" = 7, "query-results/" = 1 }
+    content {
+      id     = "expire-${replace(trimsuffix(rule.key, "/"), "/", "-")}"
+      status = "Enabled"
+      filter { prefix = rule.key }
+      expiration { days = rule.value }
+    }
+  }
+  rule {
+    id     = "expire-recent-observation-history"
+    status = "Enabled"
+    filter {
+      and {
+        prefix = "observations/history/"
+        tags   = { Retention = "working" }
+      }
+    }
+    expiration { days = 30 }
+  }
 }
 resource "aws_s3_object" "replay" {
   for_each     = fileset(var.archive_directory, "gfs-*/**")

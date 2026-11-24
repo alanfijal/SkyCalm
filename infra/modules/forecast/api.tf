@@ -32,7 +32,7 @@ resource "aws_apigatewayv2_integration" "forecast" {
   timeout_milliseconds   = 16000
 }
 resource "aws_apigatewayv2_route" "forecast" {
-  for_each  = toset(["/api/airports", "/api/runs", "/api/forecast"])
+  for_each  = toset(["/api/airports", "/api/runs", "/api/forecast", "/api/observations"])
   api_id    = aws_apigatewayv2_api.forecast.id
   route_key = "GET ${each.key}"
   target    = "integrations/${aws_apigatewayv2_integration.forecast.id}"
