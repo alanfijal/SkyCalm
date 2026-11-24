@@ -4,25 +4,13 @@
 
 | Status | Owner | Action or result |
 | --- | --- | --- |
-| Done | Alan | Selected the SkyCalm Desktop repository and a `feature/` branch. Keep these commits local. |
+| Done | Alan | Selected the SkyCalm repository and descriptive feature branches. Approved publishing Phase 0 to GitHub on 24 November 2026. |
 | Done | Project | Checked the AWS account identity, Free plan, regional service listings, relevant quotas and Nova Lite availability using read-only calls. The owner has private billing evidence. |
-| Open | Team | Review the architecture, network choice, cost envelope and demo sequence. Approve or amend the Phase 0 plan before implementation. |
+| Approved | Team | Approved Stockholm, NOAA GFS, the temporary-IP grid task, the cost envelope and the demo sequence on 24 November 2026. Phase 1 starts locally. |
 
 Review the [architecture](architecture.md), [cost comparison](costs.md) and [walkthrough](demo.md).
 
-```text
-🙋 ACTION NEEDED FROM YOU
-What:        Approve the Phase 0 design to start local Phase 1 work.
-Why:         This selects the source, region and grid network for the first implementation.
-Blocking:    yes – I am waiting
-Time:        About 5 minutes.
-Steps:
-  1. Open the architecture, network cost comparison and walkthrough linked above.
-  2. Review Stockholm, NOAA GFS and a temporary-IP task with zero inbound rules.
-  3. Reply in the project chat. AWS deployment has its own exact-plan approval later.
-Send back:   “Approve Phase 0 and start Phase 1 locally” or the change you want.
-Check:       The decision appears here and work starts on a new feature branch.
-```
+The initial AWS deployment has a separate resource, cost and Terraform plan review.
 
 ## Upcoming dependencies
 
