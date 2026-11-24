@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run one explicitly dated weather job after the initial deployment is approved.
+# Submit one dated weather run through the same admission queue as NOAA discovery.
 set -euo pipefail
 
 run=${1:-}
@@ -10,18 +10,14 @@ fi
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 bash "$root/scripts/check_aws.sh"
-request=$(terraform -chdir="$root/infra/environments/dev" output -json grid_run_request)
-cluster=$(jq -er '.cluster' <<< "$request")
-aws_ecs=(aws ecs --region eu-north-1 --no-cli-pager)
-active=$("${aws_ecs[@]}" list-tasks --cluster "$cluster" --desired-status RUNNING --query 'length(taskArns)' --output text)
-if [[ "$active" != 0 ]]; then
-  echo "Another grid task is active. Check it before starting a new run." >&2
+pipeline=skycalm-dev-pipeline
+job_id="live-$run"
+entries=$(jq -cn --arg run "$run" --arg job "$job_id" --arg bus "$pipeline" '
+  [{EventBusName: $bus, Source: "skycalm.forecast", DetailType: "forecast.run.available",
+    Detail: ({mode: "live", runId: $run, jobId: $job} | tojson)}]')
+result=$(aws events put-events --entries "$entries" --region eu-north-1 --output json --no-cli-pager)
+if ! jq -e '.FailedEntryCount == 0 and (.Entries[0].EventId | type == "string" and length > 0)' <<< "$result" > /dev/null; then
+  jq -c '.Entries' <<< "$result" >&2
   exit 1
 fi
-request=$(jq -c --arg run "$run" '.overrides = {containerOverrides: [{name:"grid",command:["--aws","--run",$run]}]}' <<< "$request")
-result=$("${aws_ecs[@]}" run-task --cli-input-json "$request" --client-token "skycalm-dev-$run")
-if ! jq -e '(.failures | length) == 0 and (.tasks | length) == 1' <<< "$result" > /dev/null; then
-  jq -c '.failures' <<< "$result" >&2
-  exit 1
-fi
-jq -r '.tasks[0].taskArn' <<< "$result"
+printf 'arn:aws:states:eu-north-1:%s:execution:%s:%s\n' "$TF_VAR_account_id" "$pipeline" "$job_id"
