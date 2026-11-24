@@ -1,0 +1,171 @@
+.route-globe {
+  position: relative;
+  isolation: isolate;
+  inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+  background: var(--map-water);
+}
+.route-globe__canvas,
+.route-globe__fallback {
+  position: absolute;
+  inset: 0;
+}
+.route-globe .maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.route-globe__controls {
+  position: absolute;
+  z-index: 4;
+  inset-inline-end: clamp(0.5rem, 1vw, 1rem);
+  inset-block-start: clamp(0.5rem, 1vw, 1rem);
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--border);
+  box-shadow: 0 0.15rem 0.6rem var(--shadow);
+}
+.route-globe__controls button {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+.route-globe__controls button:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+.route-globe__controls button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.route-globe__controls button:focus-visible {
+  outline-offset: -3px;
+}
+.route-globe .maplibregl-ctrl-attrib {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  font:
+    0.75rem/1.25rem "DM Sans Variable",
+    system-ui,
+    sans-serif;
+}
+.route-globe .maplibregl-ctrl-attrib a {
+  color: var(--text);
+}
+:root[data-theme="dark"] .route-globe .maplibregl-ctrl-attrib-button {
+  filter: invert(0.85);
+}
+.globe-airport {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.globe-airport::before {
+  content: "";
+  inline-size: 0.8rem;
+  block-size: 0.8rem;
+  border-radius: 50%;
+  background: var(--text);
+  border: 0.18rem solid var(--surface);
+  box-shadow: 0 0 0 1px var(--text);
+}
+.globe-airport span {
+  position: absolute;
+  inset-block-end: calc(50% + 0.65rem);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.4rem;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--map-coast);
+  border-radius: 0.3rem;
+  font:
+    680 0.75rem/1 "DM Sans Variable",
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.06em;
+}
+.globe-airport--origin span {
+  inset-block-end: auto;
+  inset-block-start: calc(50% + 0.65rem);
+}
+.globe-airport:is(:hover, :focus-visible) span {
+  border-color: var(--accent);
+}
+.globe-plane {
+  position: absolute;
+  z-index: 3;
+  inline-size: 1.85rem;
+  block-size: 1.85rem;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px var(--surface))
+    drop-shadow(0 0 2px var(--surface));
+}
+.globe-plane::before {
+  display: block;
+  content: "";
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--text);
+  clip-path: polygon(
+    48% 2%,
+    52% 2%,
+    56% 9%,
+    56% 37%,
+    92% 58%,
+    93% 66%,
+    56% 57%,
+    54% 79%,
+    66% 89%,
+    66% 94%,
+    50% 88%,
+    34% 94%,
+    34% 89%,
+    46% 79%,
+    44% 57%,
+    7% 66%,
+    8% 58%,
+    44% 37%,
+    44% 9%
+  );
+}
+.route-globe__fallback {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  color: var(--text-secondary);
+  background: var(--map-water);
+  text-align: center;
+}
+.route-globe__fallback strong {
+  color: var(--text);
+  font-size: 1.25rem;
+}
+.route-globe__fallback span {
+  max-inline-size: 28ch;
+}
+@media (pointer: coarse) {
+  .route-globe__controls button {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+}

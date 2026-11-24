@@ -1,0 +1,5 @@
+-r ../services/forecast/requirements.in
+eccodes==2.50.1
+eccodeslib==2.50.0.34
+numpy==2.5.5
+urllib3==2.8.0

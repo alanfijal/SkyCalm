@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0B1220" />
+    <meta
+      name="description"
+      content="Explore the air along your European flight with a passenger turbulence forecast."
+    />
+    <title>SkyCalm · Flight forecast</title>
+    <link rel="icon" href="/skycalm.svg" type="image/svg+xml" />
+    <script>
+      try {
+        if (localStorage.getItem("skycalm-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch {
+        /* Use the initial theme when storage is unavailable. */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
