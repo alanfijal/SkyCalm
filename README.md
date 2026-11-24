@@ -40,11 +40,11 @@ Refresh the page and select the live weather source. A single build downloads se
 - Temperature, wind and geopotential come from five pressure levels. The API interpolates one-degree serving tiles between forecast steps three hours apart. The 36-hour window starts at the weather run’s issue time. Grey marks missing samples and route sections beyond coverage or forecast time.
 - Airport and map data are bundled from OurAirports and Natural Earth. `scripts/prepare_geodata.py` reproduces the snapshots using pinned source revisions and checksums. [Data credits](web/public/maps/credits.txt)
 
-## Weather observations in the local preview
+## Weather observations
 
-Open **Map layers** on the globe. **Turbulence advisories** draws SIGMET areas. **Aircraft weather reports** shows where a pilot or aircraft recorded a turbulence intensity. The public Phase 1 site serves the forecast and replay. The observation layers are on the local Phase 2 branch.
+Open **Map layers** on the globe. **Turbulence advisories** draws SIGMET areas. **Aircraft weather reports** shows where a pilot or aircraft recorded a turbulence intensity. Choose the live weather source for the most recent capture, or a dated replay for the matching archived observations. The layer panel shows when the snapshot was collected.
 
-Try the **21 Nov 2026, 06:00 UTC** replay, **Edinburgh (EDI) → Porto (OPO)**, departing **14:15 UTC**. Enable both layers. A light AIREP is near sample 18. Sample 63 touches the Madrid FIR turbulence advisory. Reports are matched within 75 km, 45 minutes and 3,000 ft when a flight level is known. An advisory must cover the selected point, time and known altitude band. The 18:05 UTC archive includes weather reported after departure.
+Try the **21 Nov 2026, 06:00 UTC** replay, **Edinburgh (EDI) → Porto (OPO)**, departing **14:15 UTC**. Enable both layers. Near 14:48 UTC the route passes a light aircraft report. At 16:11 UTC it reaches the Madrid turbulence advisory. Reports are matched within 75 km, 45 minutes and 3,000 ft when a flight level is known. An advisory must cover the selected point, time and known altitude band. The 18:05 UTC archive includes weather reported after departure.
 
 To capture one current eight-hour European weather snapshot or rank routes across the five bundled dates, run these commands from the repository root.
 
@@ -55,7 +55,7 @@ python3 -m scripts.find_demo_days
 
 The collector reads the Aviation Weather Center on the server. A capped query can include hundreds of automated wind reports, so it also fetches the provider's intensity-filtered reports and deduplicates overlaps. The map displays deidentified weather fields. Reports without a turbulence value remain a separate group in the history query. The optional live-aircraft feed awaits an OpenSky agreement. Weather attribution is NOAA Aviation Weather Center and the issuing meteorological offices, including Météo-France and Fuente: AEMET. [AWC data and coverage](https://aviationweather.gov/data/api/) · [NWS data terms](https://www.weather.gov/disclaimer) · [OpenSky terms](https://opensky-network.org/about/terms-of-use)
 
-The Phase 2 Terraform adds an on-demand collector, a Glue table with daily partitions, and an Athena workgroup with a 10 MiB scan limit. The optional half-hourly schedule takes an explicit UTC window of up to two hours. Raw snapshots expire after seven days, working history after 30 days and query results after one day. The curated dates stay in the archive. After this phase is deployed, use the `skycalm-dev-weather` workgroup for [monthly report counts](analytics/monthly_reports.sql) and [dated advisories](analytics/advisories.sql).
+Terraform defines an on-demand weather collector, a Glue table with daily partitions, and an Athena workgroup with a 10 MiB scan limit. The optional half-hourly schedule takes an explicit UTC window of up to two hours. Raw snapshots expire after seven days, working history after 30 days and query results after one day. The curated dates stay in the archive. Use the `skycalm-dev-weather` workgroup in Stockholm for [monthly report counts](analytics/monthly_reports.sql) and [dated advisories](analytics/advisories.sql).
 
 ## Architecture and checks
 
@@ -82,6 +82,6 @@ done
 
 These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. The Lambda ZIP normalizes entry dates and uses hash-locked wheels. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
 
-**Deployment status.** Phase 1 went live in Stockholm on 24 November 2026. The Fargate worker completed all 13 forecast steps and exited successfully. The public site served both a current Barcelona–Stockholm forecast and its archived replay. When the latest weather run falls outside the 36-hour window, the app opens the dated replay. Weather refreshes are manual.
+**Deployment status.** Phase 1 went live in Stockholm on 24 November 2026. The Fargate worker completed all 13 forecast steps and exited successfully. The public site served both a current Barcelona–Stockholm forecast and its archived replay. When the latest weather run falls outside the 36-hour window, the app opens the dated replay. The grid and observation refreshes are manual. A current weather capture takes one on-demand invocation of `skycalm-dev-observations` with an empty JSON object. The dated replays are available between refreshes.
 
 For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and ECR repository, keep an encrypted backup of bootstrap state, and pin the ECR image digest in the dev plan. The dev backend uses S3 native locking. To refresh a deployed environment, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH` once with a complete NOAA cycle and keep the task ARN. The planning model runs with `python3 scripts/estimate_cost.py`.
