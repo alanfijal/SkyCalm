@@ -8,6 +8,7 @@ import {
   Marker,
   setWorkerUrl,
   type MapMouseEvent,
+  type GeoJSONSource,
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -19,6 +20,7 @@ import {
   type RouteLeg,
 } from "./globeGeometry";
 import type { Theme } from "./theme";
+import type { WeatherItem } from "./observations";
 import { type Airport, type Sample } from "./types";
 import "./globe.css";
 
@@ -30,6 +32,7 @@ interface Props {
   origin: Airport;
   destination: Airport;
   selected: number;
+  observations: WeatherItem[];
   onSelect: (index: number) => void;
 }
 
@@ -88,6 +91,7 @@ export default function RouteGlobe({
   origin,
   destination,
   selected,
+  observations,
   onSelect,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -151,6 +155,57 @@ export default function RouteGlobe({
       instance.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!map) return;
+    if (!map.getSource("observations")) {
+      if (!observations.length) return;
+      map.addSource("observations", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "weather-areas",
+        type: "fill",
+        source: "observations",
+        filter: ["==", ["get", "kind"], "sigmet"],
+        paint: { "fill-opacity": 0.16 },
+      });
+      map.addLayer({
+        id: "weather-lines",
+        type: "line",
+        source: "observations",
+        filter: ["==", ["get", "kind"], "sigmet"],
+        paint: { "line-width": 1.8, "line-dasharray": [3, 2] },
+      });
+      map.addLayer({
+        id: "weather-points",
+        type: "circle",
+        source: "observations",
+        filter: ["==", ["get", "kind"], "report"],
+        paint: { "circle-radius": 4.5, "circle-stroke-width": 1.5 },
+      });
+    }
+    const style = getComputedStyle(document.documentElement);
+    const color = (token: string) => style.getPropertyValue(token).trim();
+    map.setPaintProperty("weather-areas", "fill-color", color("--accent"));
+    map.setPaintProperty("weather-lines", "line-color", color("--accent"));
+    map.setPaintProperty("weather-points", "circle-color", color("--replay"));
+    map.setPaintProperty(
+      "weather-points",
+      "circle-stroke-color",
+      color("--surface"),
+    );
+    map.getSource<GeoJSONSource>("observations")?.setData({
+      type: "FeatureCollection",
+      features: observations.map((item) => ({
+        type: "Feature",
+        id: item.id,
+        geometry: item.geometry,
+        properties: { kind: item.kind },
+      })),
+    });
+  }, [map, observations, theme]);
 
   useEffect(() => {
     const ribbons = overlay.current;

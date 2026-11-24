@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -25,6 +26,9 @@ import {
 import AirportField from "./AirportField";
 import Guide from "./Guide";
 import Timeline from "./Timeline";
+import WeatherLayers from "./WeatherLayers";
+import { nearby, type LayerChoice } from "./observations";
+import { useObservations } from "./useObservations";
 import { applyTheme, categoryColor, type Theme } from "./theme";
 import {
   LABELS,
@@ -58,6 +62,28 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [layerChoice, setLayerChoice] = useState<LayerChoice>({
+    sigmet: false,
+    report: false,
+  });
+  const layerSource =
+    forecast?.mode === "live" ? "latest" : (forecast?.run.runId ?? "");
+  const weather = useObservations(
+    layerSource,
+    Boolean(
+      forecast &&
+      source === layerSource &&
+      (layerChoice.sigmet || layerChoice.report),
+    ),
+  );
+  const visibleWeather = useMemo(
+    () => weather.data?.items.filter((item) => layerChoice[item.kind]) ?? [],
+    [weather.data, layerChoice],
+  );
+  const nearbyWeather =
+    forecast && weather.data
+      ? nearby(visibleWeather, forecast.samples[point])
+      : null;
   const flightRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(
@@ -390,18 +416,29 @@ export default function App() {
                     {forecast.distanceKm.toLocaleString("en-GB")} km
                   </span>
                 </div>
-                <Suspense
-                  fallback={<div className="map-wait">Loading the map…</div>}
-                >
-                  <RouteGlobe
-                    theme={theme}
-                    samples={forecast.samples}
-                    origin={forecast.origin}
-                    destination={forecast.destination}
-                    selected={point}
-                    onSelect={setPoint}
+                <div className="map-viewport">
+                  <WeatherLayers
+                    choice={layerChoice}
+                    onChange={setLayerChoice}
+                    data={weather.data}
+                    loading={weather.loading}
+                    error={weather.error}
+                    onRetry={weather.retry}
                   />
-                </Suspense>
+                  <Suspense
+                    fallback={<div className="map-wait">Loading the map…</div>}
+                  >
+                    <RouteGlobe
+                      theme={theme}
+                      samples={forecast.samples}
+                      origin={forecast.origin}
+                      destination={forecast.destination}
+                      selected={point}
+                      onSelect={setPoint}
+                      observations={visibleWeather}
+                    />
+                  </Suspense>
+                </div>
                 <div className="legend" aria-label="Intensity legend">
                   {classes.map((c) => (
                     <span key={c}>
@@ -438,7 +475,12 @@ export default function App() {
           </section>
         </div>
         {forecast && (
-          <Timeline forecast={forecast} index={point} onSelect={setPoint} />
+          <Timeline
+            forecast={forecast}
+            index={point}
+            onSelect={setPoint}
+            observations={nearbyWeather}
+          />
         )}
         <footer className="foot">
           <Info size={14} />
