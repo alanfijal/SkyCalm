@@ -1,0 +1,140 @@
+{
+  "runId": "gfs-20261122-06",
+  "scorer": "ti1-cape-v1",
+  "issued": "2026-11-22T06:00:00Z",
+  "validUntil": "2026-11-23T18:00:00Z",
+  "leads": [
+    {
+      "lead": 0,
+      "sha256": "1b621c2e88c081e1af2d743982051aa8dfb1f8eb0d718e3cb87dc3d88a1a83fb",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f000",
+      "etag": "\"4bf13a178cf58a2016185cebbea6e1d8\"",
+      "bytes": 14181507,
+      "messages": 22,
+      "indexSha256": "d65a7449c3b81fb27f7ce8167c4d168539472d8a5ffd2ffd4ec70a3bbc68dee7",
+      "selectedSha256": "c6d7f6948fabb8fce7b0dfcb4219374dea7ba0da265a1f4338992549f5d2e68c"
+    },
+    {
+      "lead": 3,
+      "sha256": "fdca73624fc4ed9c67e19418910f4fafb8bbd85fd1b6e854983a4ed2404c0944",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f003",
+      "etag": "\"de66da2337266888d8fe74bbd129f90a\"",
+      "bytes": 14194721,
+      "messages": 22,
+      "indexSha256": "db564d01c26d2521bcc5f1fd171c4a4365d91b15cf199ba6973dcf62452cc8fa",
+      "selectedSha256": "3fdfa8b3281f972d67a3168efb93549ed32e3d6af74d992f1a955fbeeacb9fc2"
+    },
+    {
+      "lead": 6,
+      "sha256": "931894f4dd880e9f85e7c58aad5ae11f3b3c95952034b20db6b531bfa92f9e09",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f006",
+      "etag": "\"815d22f119f470f0055f8b9df437c0e4\"",
+      "bytes": 14199401,
+      "messages": 22,
+      "indexSha256": "e163db576c112ce2174bee64800271af1b6f4c74b7a3de5fa9fad35767bee5ce",
+      "selectedSha256": "0abc1fcd839d5272d75a97cb4ad24b7db6fb605579903b3c803167a2cd0e5c1c"
+    },
+    {
+      "lead": 9,
+      "sha256": "35d92a889c611c41a1330608364c620852bf6b343f8cb9c82ce6e08d147fa0f9",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f009",
+      "etag": "\"ad80d8a746dc0921a32734b5b5700dd3\"",
+      "bytes": 15131054,
+      "messages": 22,
+      "indexSha256": "fb379224453c951816f486d4dd519d484821885682a60236aabc60853e2a9808",
+      "selectedSha256": "57a037bfef36d0aa1606897289461e3245656cb88f48e3db29a6bf79e30e70ec"
+    },
+    {
+      "lead": 12,
+      "sha256": "6da398d85334858f3467db2b0418ac49fe2365d5fe5bf5b45b50520048d75497",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f012",
+      "etag": "\"32670953136f4c4df95a9927b4fe5e13\"",
+      "bytes": 14366569,
+      "messages": 22,
+      "indexSha256": "6c539e175c4d899e4612f2172131812d5a4ed3b888b174f6dcc74576d866b102",
+      "selectedSha256": "0d1de4f3b1f44d0706a6f8f9d5866778c70617b069ba47c3831e76e702b37be5"
+    },
+    {
+      "lead": 15,
+      "sha256": "9dcedfe551b740da21c5a82cf028fb07d507014439fa00229671858c68f75643",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f015",
+      "etag": "\"f03ef53ab6d273729dc6bf2e0df149b5\"",
+      "bytes": 14342867,
+      "messages": 22,
+      "indexSha256": "7e22d11a711442dfebc01b0d7f40b95f4e673ad82da9fc69c488a2b156a36912",
+      "selectedSha256": "2e0b6c2a72b49c8d62bcf85f8ec34a1e980ac503210091f37cd80ea44fe88633"
+    },
+    {
+      "lead": 18,
+      "sha256": "7e4513ebc36944ec5f7188ad988d0ca1459865aac3ecd2f14f9c4441acb42ea5",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f018",
+      "etag": "\"259466865f6517636c9d86e582414d47\"",
+      "bytes": 14326449,
+      "messages": 22,
+      "indexSha256": "73b71a51f5921399ceb6803e393f15388cf1b68690b77530f75d135a3356b9a4",
+      "selectedSha256": "771760b0288e59693a0d12303d2fc3f38aec4fc6bf73b688f15caeb53047b608"
+    },
+    {
+      "lead": 21,
+      "sha256": "51cce139ba6cd3d8dc6f4269957e3fd88e4ab8b4e1fb47a171d9cfd9437b3ec5",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f021",
+      "etag": "\"f83f783e31643cc6e5fc7be40e5d2b07\"",
+      "bytes": 14297153,
+      "messages": 22,
+      "indexSha256": "aeaf2bb132d49f460cb31ff4431c42bc7d976a2b5f210594d4a4c5059610174e",
+      "selectedSha256": "7ce22ba7b5eadfe7896604aa8df3b0f680381ca7fa060ca4d5c988e44f277811"
+    },
+    {
+      "lead": 24,
+      "sha256": "2209298657244e9d6b5e835a1067b5f9e9c630360b072aa0b13e18b5679cacf6",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f024",
+      "etag": "\"a688fa4c1fb5310a8d9b92b3fed24ef6\"",
+      "bytes": 14292383,
+      "messages": 22,
+      "indexSha256": "371b1b3d795c228a46619ca00cf60525a2f165a00ce588b0e75fe43f20029b60",
+      "selectedSha256": "59ab1346580ff5077eb0f308dce159e0576444e3fbc4cae3986565aad0eb7758"
+    },
+    {
+      "lead": 27,
+      "sha256": "1e9221c70fab8b9ba191d353d922d216ac5c091cab1e7a10794df51b38100d8f",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f027",
+      "etag": "\"bd7aa979655ec32f2f86a05266fb9319\"",
+      "bytes": 14298428,
+      "messages": 22,
+      "indexSha256": "6d4396164a1c22a53ec64a5874a32f9a33a720bf71c7fa7f6ea25ee2b313f19b",
+      "selectedSha256": "39ffd3520543dc0773eb406ff81c57056d657bc72a396a327615be4f0278f90e"
+    },
+    {
+      "lead": 30,
+      "sha256": "104fbd3d1352d8c776d536062a35ae5e3d6195eaeff58fa5c10a58445f2ddea3",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f030",
+      "etag": "\"9cff480afc915f095d2ff23daa34d3c5\"",
+      "bytes": 14309488,
+      "messages": 22,
+      "indexSha256": "1220f2926bd818f4c99101fcb75aaf1eb044aaef4aa242f4af969ad0a4b7421b",
+      "selectedSha256": "40c9dbc2f00438a411cf3a68ca6aff7b2adf82d83ea0663a2f8fa6d3635641f4"
+    },
+    {
+      "lead": 33,
+      "sha256": "a16a43115ebd2f8150e69e216c343e598411621c49dff06cfd6e21a546aa96c5",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f033",
+      "etag": "\"2a3059d5f29d26a87a155f09981b5fe3\"",
+      "bytes": 15115192,
+      "messages": 22,
+      "indexSha256": "f42622c0bb17e528f0a185bce1d99bd7e1ab669ed1151c3aeb1f6094127f490d",
+      "selectedSha256": "e275ee3900c13f56da848253e0c6443d7cd99a01315169c367a68af671bdf416"
+    },
+    {
+      "lead": 36,
+      "sha256": "83c46ed514983a74aca7846d070774e469f84bfbeca2156ebcda403361157699",
+      "url": "https://noaa-gfs-bdp-pds.s3.us-east-1.amazonaws.com/gfs.20261122/06/atmos/gfs.t06z.pgrb2.0p25.f036",
+      "etag": "\"59d420ba111c7d76c441de00c607b707\"",
+      "bytes": 14339575,
+      "messages": 22,
+      "indexSha256": "5ad7f2896c85988e139892fa8c3855338d4b01e543a8a06e572f50073e49f285",
+      "selectedSha256": "598a1106cfa66d7ce0ade2f55df19c8bfed2f210babea8b8be89275ac3fb16b7"
+    }
+  ],
+  "source": "NOAA GFS 0.25\u00b0",
+  "tileStep": 1
+}
