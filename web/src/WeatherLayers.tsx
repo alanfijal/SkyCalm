@@ -79,6 +79,7 @@ export default function WeatherLayers({
                 {data.limited && (
                   <span>The source capped the report list.</span>
                 )}
+                <span>{data.source} · issuing weather offices</span>
               </>
             ) : null}
           </div>

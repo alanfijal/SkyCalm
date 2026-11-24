@@ -36,3 +36,30 @@ run "reject_mutable_image" {
   variables { image_digest = "latest" }
   expect_failures = [var.image_digest]
 }
+
+run "finite_weather_window" {
+  command = plan
+  module { source = "../../modules/forecast" }
+  variables {
+    lambda_zip         = "../../../build/forecast.zip"
+    web_directory      = "../../../web/dist"
+    archive_directory  = "../../../services/forecast/data/replay"
+    observation_window = { start = "2027-01-04T12:00:00Z", end = "2027-01-04T13:00:00Z" }
+  }
+  assert {
+    condition     = length(aws_scheduler_schedule.observations) == 1 && aws_scheduler_schedule.observations[0].end_date == var.observation_window.end
+    error_message = "The collector's schedule must end at the approved time."
+  }
+}
+
+run "reject_unbounded_weather_window" {
+  command = plan
+  module { source = "../../modules/forecast" }
+  variables {
+    lambda_zip         = "../../../build/forecast.zip"
+    web_directory      = "../../../web/dist"
+    archive_directory  = "../../../services/forecast/data/replay"
+    observation_window = { start = "2027-01-04T12:00:00Z", end = "2027-01-05T12:00:00Z" }
+  }
+  expect_failures = [var.observation_window]
+}

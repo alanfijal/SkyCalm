@@ -40,9 +40,26 @@ Refresh the page and select the live weather source. A single build downloads se
 - Temperature, wind and geopotential come from five pressure levels. The API interpolates one-degree serving tiles between forecast steps three hours apart. The 36-hour window starts at the weather run’s issue time. Grey marks missing samples and route sections beyond coverage or forecast time.
 - Airport and map data are bundled from OurAirports and Natural Earth. `scripts/prepare_geodata.py` reproduces the snapshots using pinned source revisions and checksums. [Data credits](web/public/maps/credits.txt)
 
+## Weather observations in the local preview
+
+Open **Map layers** on the globe. **Turbulence advisories** draws SIGMET areas. **Aircraft weather reports** shows where a pilot or aircraft recorded a turbulence intensity. The public Phase 1 site serves the forecast and replay. The observation layers are on the local Phase 2 branch.
+
+Try the **21 Nov 2026, 06:00 UTC** replay, **Edinburgh (EDI) → Porto (OPO)**, departing **14:15 UTC**. Enable both layers. A light AIREP is near sample 18. Sample 63 touches the Madrid FIR turbulence advisory. Reports are matched within 75 km, 45 minutes and 3,000 ft when a flight level is known. An advisory must cover the selected point, time and known altitude band. The 18:05 UTC archive includes weather reported after departure.
+
+To capture one current eight-hour European weather snapshot or rank routes across the five bundled dates, run these commands from the repository root.
+
+```sh
+python3 -m services.observations.collect
+python3 -m scripts.find_demo_days
+```
+
+The collector reads the Aviation Weather Center on the server. A capped query can include hundreds of automated wind reports, so it also fetches the provider's intensity-filtered reports and deduplicates overlaps. The map displays deidentified weather fields. Reports without a turbulence value remain a separate group in the history query. The optional live-aircraft feed awaits an OpenSky agreement. Weather attribution is NOAA Aviation Weather Center and the issuing meteorological offices, including Météo-France and Fuente: AEMET. [AWC data and coverage](https://aviationweather.gov/data/api/) · [NWS data terms](https://www.weather.gov/disclaimer) · [OpenSky terms](https://opensky-network.org/about/terms-of-use)
+
+The Phase 2 Terraform adds an on-demand collector, a Glue table with daily partitions, and an Athena workgroup with a 10 MiB scan limit. The optional half-hourly schedule takes an explicit UTC window of up to two hours. Raw snapshots expire after seven days, working history after 30 days and query results after one day. The curated dates stay in the archive. After this phase is deployed, use the `skycalm-dev-weather` workgroup for [monthly report counts](analytics/monthly_reports.sql) and [dated advisories](analytics/advisories.sql).
+
 ## Architecture and checks
 
-`grid/` contains the Linux/amd64 worker. `services/forecast/` implements the HTTP API shared by the local server and Lambda. The three public GET routes are `/api/airports?q=BCN`, `/api/runs` and `/api/forecast` with `origin`, `destination`, `departure` and `run`. `web/` contains the React app, MapLibre globe and deck.gl route layer.
+`grid/` contains the Linux/amd64 worker. `services/forecast/` implements the HTTP API shared by the local server and Lambda. The public GET routes are `/api/airports?q=BCN`, `/api/runs`, `/api/forecast` with `origin`, `destination`, `departure` and `run`, and `/api/observations?run=latest`. `web/` contains the React app, MapLibre globe and deck.gl route layer.
 
 The Stockholm Terraform configuration defines a private S3 web origin behind CloudFront, a regional HTTP API and arm64 Lambda, S3 weather and replay objects, a DynamoDB latest-run pointer and a manually started Fargate task. The worker can finish a single job in its public subnet and exit. Its security group allows outbound HTTPS. S3 and DynamoDB use regional gateway endpoints. The API role can read weather and the worker role can publish it. Working weather objects expire after seven days. The archived demonstration run has its own prefix. [Application infrastructure](infra/modules/forecast/) · [Bootstrap](infra/bootstrap/)
 
