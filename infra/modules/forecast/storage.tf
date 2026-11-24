@@ -18,6 +18,8 @@ resource "aws_s3_bucket_ownership_controls" "app" {
   bucket   = aws_s3_bucket.app[each.key].id
   rule { object_ownership = "BucketOwnerEnforced" }
 }
+# The buckets hold public weather and site assets. SSE-S3 avoids a per-key charge.
+#trivy:ignore:AVD-AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "app" {
   for_each = local.bucket_purposes
   bucket   = aws_s3_bucket.app[each.key].id

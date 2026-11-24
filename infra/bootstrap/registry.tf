@@ -2,7 +2,7 @@ resource "aws_ecr_repository" "grid" {
   name                 = "skycalm/grid"
   image_tag_mutability = "IMMUTABLE"
   encryption_configuration { encryption_type = "AES256" }
-  image_scanning_configuration { scan_on_push = false }
+  image_scanning_configuration { scan_on_push = true }
 }
 resource "aws_ecr_lifecycle_policy" "untagged" {
   repository = aws_ecr_repository.grid.name

@@ -17,6 +17,8 @@ resource "aws_cloudfront_cache_policy" "assets" {
     enable_accept_encoding_gzip   = true
   }
 }
+# Phase 1 serves static files at this origin. WAF and its budget are reviewed in Phase 6.
+#trivy:ignore:AVD-AWS-0011
 resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   comment             = "SkyCalm passenger forecast"

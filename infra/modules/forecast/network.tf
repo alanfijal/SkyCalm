@@ -34,6 +34,8 @@ resource "aws_security_group" "grid" {
   description = "HTTPS egress for regional services and public NOAA ranges"
   vpc_id      = aws_vpc.grid.id
 }
+# NOAA's public US S3 endpoint is outside the Stockholm gateway endpoint. Its IPs rotate.
+#trivy:ignore:AVD-AWS-0104
 resource "aws_vpc_security_group_egress_rule" "https" {
   security_group_id = aws_security_group.grid.id
   cidr_ipv4         = "0.0.0.0/0"
