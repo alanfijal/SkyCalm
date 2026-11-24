@@ -212,7 +212,7 @@ select:focus-visible {
   overflow: hidden;
   min-height: 0;
 }
-.route #ribbon i {
+#ribbon i {
   height: 16px;
   flex: 1;
   background: var(--line);

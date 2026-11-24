@@ -13,6 +13,11 @@ for (const width of [390, 1280]) {
       page.getByText("Route updated.", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(/69 sample points/)).toBeVisible();
+    await expect(page.locator("#ribbon i")).toHaveCount(69);
+    await expect(page.locator("#ribbon .moderate").first()).toHaveCSS(
+      "background-color",
+      "rgb(244, 162, 89)",
+    );
     await expect(
       page.getByRole("img", { name: /Forecast along the route/ }),
     ).toBeVisible();
