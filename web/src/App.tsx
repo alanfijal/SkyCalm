@@ -3,14 +3,18 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import {
   ArrowRight,
   ArrowUpDown,
-  CalendarDays,
-  Clock3,
+  ChevronDown,
+  ChevronUp,
+  Moon,
+  Pencil,
+  Sun,
   Globe2,
   Info,
   Navigation,
@@ -21,8 +25,8 @@ import {
 import AirportField from "./AirportField";
 import Guide from "./Guide";
 import Timeline from "./Timeline";
+import { applyTheme, categoryColor, type Theme } from "./theme";
 import {
-  COLORS,
   LABELS,
   city,
   clock,
@@ -38,6 +42,12 @@ const classes: Category[] = ["smooth", "light", "moderate", "severe"];
 const fmt = (d: Run) => dateLabel(d.issued) + " · " + clock(d.issued) + " UTC";
 
 export default function App() {
+  const [theme, setTheme] = useState<Theme>(() =>
+    document.documentElement.dataset.theme === "light" ? "light" : "dark",
+  );
+  const [editing, setEditing] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => applyTheme(theme), [theme]);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [source, setSource] = useState("");
   const [origin, setOrigin] = useState<Airport | null>(null);
@@ -71,6 +81,7 @@ export default function App() {
         if (!ctrl.signal.aborted) {
           setForecast(f);
           setPoint(Math.floor((f.samples.length - 1) / 2));
+          return true;
         }
       } catch (e) {
         if (!ctrl.signal.aborted) {
@@ -84,6 +95,7 @@ export default function App() {
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }
+      return false;
     },
     [],
   );
@@ -151,29 +163,41 @@ export default function App() {
     source === "latest"
       ? catalog?.latest
       : catalog?.replays.find((r) => r.runId === source);
+  const formExpanded = editing || !forecast;
+  const themeAction =
+    theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
   return (
     <>
       <header className="topbar">
         <div className="nav-inner">
           <a href="/" className="brand" aria-label="SkyCalm home">
-            <img src="/skycalm.svg" alt="" />
+            <svg className="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+              <use href="/skycalm.svg#plane" />
+            </svg>
             <span>SkyCalm</span>
           </a>
-          <a className="nav-current" href="#forecast">
-            <span />
-            Flight forecast
-          </a>
-          <Guide />
+          <div className="nav-actions">
+            <Guide />
+            <button
+              className="theme-toggle"
+              type="button"
+              aria-label={themeAction}
+              title={themeAction}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+            </button>
+          </div>
         </div>
       </header>
       <main id="forecast" className="shell">
         <div className="page-title">
           <div>
             <h1>Flight forecast</h1>
-            <p>Explore the air along your European flight.</p>
+            <p>European routes · 36-hour forecast window</p>
           </div>
           {catalog && (
-            <div className="source-control">
+            <div className="source-control" data-replay={source !== "latest"}>
               <span className="source-icon">
                 {source === "latest" ? (
                   <Globe2 size={18} />
@@ -181,39 +205,85 @@ export default function App() {
                   <RotateCcw size={18} />
                 )}
               </span>
-              <div>
+              <div className="source-content">
                 <label htmlFor="source">Weather source</label>
-                <select
-                  id="source"
-                  value={source}
-                  onChange={(e) => switchSource(e.target.value)}
-                >
-                  {catalog.latest && (
-                    <option value="latest">Latest forecast</option>
-                  )}
-                  {catalog.replays.map((r) => (
-                    <option key={r.runId} value={r.runId}>
-                      Replay · {fmt(r)}
-                    </option>
-                  ))}
-                </select>
+                <div className="source-select">
+                  <select
+                    id="source"
+                    value={source}
+                    onChange={(e) => switchSource(e.target.value)}
+                  >
+                    {catalog.latest && (
+                      <option value="latest">
+                        Latest · {fmt(catalog.latest)}
+                      </option>
+                    )}
+                    {catalog.replays.map((r) => (
+                      <option key={r.runId} value={r.runId}>
+                        Replay · {fmt(r)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </div>
               </div>
             </div>
           )}
         </div>
         <div className="workspace">
-          <section className="planner card">
-            <div className="card-title">
-              <span className="section-icon">
-                <SlidersHorizontal size={17} />
-              </span>
-              <h2>Your flight</h2>
+          <section
+            className="planner card"
+            data-expanded={formExpanded}
+            aria-label="Your flight"
+          >
+            <div className="planner-heading">
+              <div className="card-title">
+                <span className="section-icon">
+                  <SlidersHorizontal size={17} />
+                </span>
+                <h2>Your flight</h2>
+              </div>
+              {forecast && !formExpanded && (
+                <p className="flight-summary">
+                  <strong>
+                    {forecast.origin.code} <ArrowRight size={13} />{" "}
+                    {forecast.destination.code}
+                  </strong>
+                  <span>
+                    {dateLabel(forecast.departure)} ·{" "}
+                    {clock(forecast.departure)} UTC
+                  </span>
+                </p>
+              )}
+              {forecast && (
+                <button
+                  type="button"
+                  className="edit-flight"
+                  ref={editButton}
+                  aria-controls="flight-form"
+                  aria-expanded={formExpanded}
+                  onClick={() => setEditing(!editing)}
+                >
+                  {editing ? <ChevronUp size={15} /> : <Pencil size={14} />}
+                  {editing ? "Close" : "Edit flight"}
+                </button>
+              )}
             </div>
             <form
-              onSubmit={(e) => {
+              id="flight-form"
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (origin && dest && departure && source)
-                  void load(origin, dest, departure, source);
+                if (
+                  origin &&
+                  dest &&
+                  departure &&
+                  source &&
+                  (await load(origin, dest, departure, source))
+                ) {
+                  setEditing(false);
+                  if (editButton.current?.offsetWidth)
+                    editButton.current.focus({ preventScroll: true });
+                }
               }}
             >
               <div className="airport-pair">
@@ -243,7 +313,6 @@ export default function App() {
                 <label>
                   Departure date
                   <span className="native-field">
-                    <CalendarDays size={15} />
                     <input
                       required
                       type="date"
@@ -262,7 +331,6 @@ export default function App() {
                 <label>
                   Time (UTC)
                   <span className="native-field">
-                    <Clock3 size={15} />
                     <input
                       required
                       type="time"
@@ -283,7 +351,6 @@ export default function App() {
                 disabled={loading || !origin || !dest || !source}
               >
                 {loading ? "Loading forecast…" : "Forecast flight"}
-                <ArrowRight size={17} />
               </button>
               {dirty && !loading && (
                 <p className="dirty">
@@ -291,7 +358,7 @@ export default function App() {
                 </p>
               )}
             </form>
-            <div className="data-note">
+            <div className="data-note" data-replay={source !== "latest"}>
               <Globe2 size={16} />
               <div>
                 <b>{meta?.source || "NOAA GFS"}</b>
@@ -327,6 +394,7 @@ export default function App() {
                   fallback={<div className="map-wait">Loading the map…</div>}
                 >
                   <RouteGlobe
+                    theme={theme}
                     samples={forecast.samples}
                     origin={forecast.origin}
                     destination={forecast.destination}
@@ -337,7 +405,7 @@ export default function App() {
                 <div className="legend" aria-label="Intensity legend">
                   {classes.map((c) => (
                     <span key={c}>
-                      <i style={{ background: COLORS[c] }} />
+                      <i style={{ background: categoryColor(c) }} />
                       {LABELS[c]}
                     </span>
                   ))}
@@ -345,7 +413,7 @@ export default function App() {
                     (s) => s.category === "unavailable",
                   ) && (
                     <span>
-                      <i style={{ background: COLORS.unavailable }} />
+                      <i style={{ background: categoryColor("unavailable") }} />
                       Unavailable
                     </span>
                   )}

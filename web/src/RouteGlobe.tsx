@@ -11,13 +11,21 @@ import {
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { globeStyle, routeLegs, type RouteLeg } from "./globeGeometry";
+import {
+  globePalette,
+  globeStyle,
+  recolorGlobe,
+  routeLegs,
+  type RouteLeg,
+} from "./globeGeometry";
+import type { Theme } from "./theme";
 import { type Airport, type Sample } from "./types";
 import "./globe.css";
 
 setWorkerUrl(workerUrl);
 
 interface Props {
+  theme: Theme;
   samples: Sample[];
   origin: Airport;
   destination: Airport;
@@ -33,10 +41,10 @@ function fitRoute(map: Globe, samples: Sample[]) {
   if (!w || !h) return;
   map.fitBounds(bounds, {
     padding: {
-      left: Math.min(89, Math.floor(w * 0.18)),
-      right: Math.min(89, Math.floor(w * 0.18)),
-      top: Math.min(80, Math.floor(h * 0.24)),
-      bottom: Math.min(67, Math.floor(h * 0.21)),
+      left: Math.min(76, Math.max(30, Math.round(w * 0.08))),
+      right: Math.min(94, Math.max(64, Math.round(w * 0.1))),
+      top: Math.min(72, Math.max(44, Math.round(h * 0.15))),
+      bottom: Math.min(72, Math.max(48, Math.round(h * 0.16))),
     },
     maxZoom: map.getMaxZoom(),
     pitch: 0,
@@ -75,6 +83,7 @@ function airportMarker(
 }
 
 export default function RouteGlobe({
+  theme,
   samples,
   origin,
   destination,
@@ -103,7 +112,7 @@ export default function RouteGlobe({
     try {
       instance = new Globe({
         container: node,
-        style: globeStyle(),
+        style: globeStyle(globePalette()),
         center: [10, 50],
         zoom: 2.4,
         minZoom: 0.5,
@@ -146,18 +155,16 @@ export default function RouteGlobe({
   useEffect(() => {
     const ribbons = overlay.current;
     if (!map || !ribbons) return;
-    if (!samples.length) {
-      ribbons.setProps({ layers: [] });
-      return;
-    }
-    const legs = routeLegs(samples);
+    const palette = globePalette();
+    recolorGlobe(map, palette);
+    const legs = routeLegs(samples, palette.route);
     const line = new PathLayer<RouteLeg>({
       id: "forecast-route",
       data: legs,
       getPath: (leg) => leg.path,
       getColor: (leg) => leg.color,
       widthUnits: "pixels",
-      getWidth: 3.5,
+      getWidth: 4,
       capRounded: true,
       jointRounded: true,
       pickable: true,
@@ -166,13 +173,20 @@ export default function RouteGlobe({
       layers: [
         line.clone({
           id: "forecast-halo",
-          getWidth: 9,
-          opacity: 0.15,
+          getWidth: 6.5,
+          getColor: palette.casing,
+          opacity: 0.48,
+          parameters: { depthWriteEnabled: false },
           pickable: false,
         }),
         line,
       ],
     });
+  }, [map, samples, theme]);
+
+  useEffect(() => {
+    const ribbons = overlay.current;
+    if (!map || !ribbons || !samples.length) return;
     const from = airportMarker(map, origin, "origin", () => select.current(0));
     const to = airportMarker(map, destination, "destination", () =>
       select.current(samples.length - 1),

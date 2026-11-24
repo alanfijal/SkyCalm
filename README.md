@@ -15,6 +15,8 @@ python3 -m services.forecast.local
 
 Open **http://127.0.0.1:4173**. Press Ctrl+C in the server terminal to stop. The bundled map, fonts, airport catalog and archived weather work offline after the build. No cloud account is needed.
 
+On phones and tablets, tap **Edit flight** to change the airports or departure time. The sun or moon button in the header switches themes and remembers your choice on this browser.
+
 **Try a replay.** Choose the archived **24 Nov 2026, 12 UTC** weather run, Barcelona (BCN) to Stockholm Arlanda (ARN), and depart on **24 Nov at 18:00 UTC**. Select **Forecast flight** if you change the route. The estimated flight takes 2 h 54 min. Use the timeline or the coloured route to explore the change from smooth to moderate. **Forecast guide** explains the model and its limits.
 
 ### Load a current weather run

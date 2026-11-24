@@ -1,5 +1,6 @@
 import { Clock3, Mountain, Wind } from "lucide-react";
-import { COLORS, LABELS, clock, duration } from "./types";
+import { categoryColor } from "./theme";
+import { LABELS, clock, duration } from "./types";
 import type { Forecast } from "./types";
 
 export default function Timeline({
@@ -44,7 +45,10 @@ export default function Timeline({
           <div className="track">
             <div className="bands" aria-hidden="true">
               {samples.slice(0, -1).map((s, i) => (
-                <span key={i} style={{ background: COLORS[s.category] }} />
+                <span
+                  key={i}
+                  style={{ background: categoryColor(s.category) }}
+                />
               ))}
             </div>
             <div
@@ -72,7 +76,7 @@ export default function Timeline({
         </div>
         <div className="sample-detail" aria-live="polite">
           <div className="detail-heading">
-            <i style={{ background: COLORS[p.category] }} />
+            <i style={{ background: categoryColor(p.category) }} />
             <strong>{peak}</strong>
             <span>{p.phase}</span>
           </div>

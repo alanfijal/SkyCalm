@@ -1,12 +1,5 @@
 export type Category =
   "smooth" | "light" | "moderate" | "severe" | "unavailable";
-export const COLORS: Record<Category, string> = {
-  smooth: "#7be2c6",
-  light: "#9fc6ff",
-  moderate: "#f4bf76",
-  severe: "#eb8ca9",
-  unavailable: "#8394a3",
-};
 export const LABELS: Record<Category, string> = {
   smooth: "Smooth",
   light: "Light",

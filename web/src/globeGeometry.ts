@@ -1,22 +1,63 @@
 import type { FeatureCollection, LineString, Position } from "geojson";
-import type { StyleSpecification } from "maplibre-gl";
-import { COLORS, type Sample } from "./types";
+import type {
+  Map as Globe,
+  SkySpecification,
+  StyleSpecification,
+} from "maplibre-gl";
+import { categoryTokens } from "./theme";
+import type { Category, Sample } from "./types";
+
+type RGB = [number, number, number];
+
+function rgb(hex: string): RGB {
+  const digits = hex.slice(1);
+  const full =
+    digits.length === 3 ? [...digits].map((c) => c + c).join("") : digits;
+  const value = Number.parseInt(full, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+export function globePalette() {
+  // MapLibre and deck.gl draw to a canvas, so they need resolved CSS colours.
+  const style = getComputedStyle(document.documentElement);
+  const read = (token: string) => style.getPropertyValue(token).trim();
+  const route = Object.fromEntries(
+    Object.entries(categoryTokens).map(([key, token]) => [
+      key,
+      rgb(read(token)),
+    ]),
+  ) as Record<Category, RGB>;
+  return {
+    sky: read("--bg"),
+    water: read("--map-water"),
+    land: read("--map-land"),
+    coast: read("--map-coast"),
+    label: read("--map-label"),
+    horizon: read("--map-horizon"),
+    casing: rgb(read("--map-casing")),
+    route,
+  };
+}
+
+type Palette = ReturnType<typeof globePalette>;
 
 export interface RouteLeg {
   path: [number, number][];
-  color: [number, number, number];
+  color: RGB;
 }
 
-export function routeLegs(samples: Sample[]): RouteLeg[] {
+export function routeLegs(
+  samples: Sample[],
+  colors: Record<Category, RGB>,
+): RouteLeg[] {
   return samples.slice(0, -1).map((sample, index) => {
     const next = samples[index + 1];
-    const rgb = Number.parseInt(COLORS[sample.category].slice(1), 16);
     return {
       path: [
         [sample.lon, sample.lat],
         [next.lon, next.lat],
       ],
-      color: [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255],
+      color: colors[sample.category],
     };
   });
 }
@@ -39,29 +80,58 @@ function graticule(): FeatureCollection<LineString> {
   };
 }
 
-export function globeStyle(): StyleSpecification {
+function sky(palette: Palette): SkySpecification {
+  return {
+    "sky-color": palette.sky,
+    "horizon-color": palette.horizon,
+    "fog-color": palette.water,
+    "sky-horizon-blend": 0.06,
+    "horizon-fog-blend": 0,
+    "fog-ground-blend": 0,
+    "atmosphere-blend": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      0,
+      0.65,
+      3,
+      0.05,
+      6,
+      0,
+    ],
+  };
+}
+
+type PaintProperty = Parameters<Globe["setPaintProperty"]>[1];
+
+function paints(palette: Palette) {
+  return {
+    ocean: { "background-color": palette.water },
+    land: { "fill-color": palette.land, "fill-outline-color": palette.coast },
+    borders: { "line-color": palette.coast },
+    graticule: { "line-color": palette.label },
+    "country-labels": {
+      "text-color": palette.label,
+      "text-halo-color": palette.land,
+    },
+  } satisfies Record<string, Partial<Record<PaintProperty, string>>>;
+}
+
+export function recolorGlobe(map: Globe, palette: Palette) {
+  map.setSky(sky(palette));
+  for (const [layer, properties] of Object.entries(paints(palette))) {
+    for (const [name, color] of Object.entries(properties)) {
+      map.setPaintProperty(layer, name as PaintProperty, color);
+    }
+  }
+}
+
+export function globeStyle(palette: Palette): StyleSpecification {
+  const paint = paints(palette);
   return {
     version: 8,
     projection: { type: "globe" },
-    sky: {
-      "sky-color": "#101c29",
-      "horizon-color": "#39556b",
-      "fog-color": "#182c3b",
-      "sky-horizon-blend": 0.06,
-      "horizon-fog-blend": 0,
-      "fog-ground-blend": 0,
-      "atmosphere-blend": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        0,
-        0.65,
-        3,
-        0.05,
-        6,
-        0,
-      ],
-    },
+    sky: sky(palette),
     sources: {
       countries: {
         type: "geojson",
@@ -76,24 +146,21 @@ export function globeStyle(): StyleSpecification {
       {
         id: "ocean",
         type: "background",
-        paint: { "background-color": "#122331" },
+        paint: paint.ocean,
       },
       {
         id: "land",
         type: "fill",
         source: "countries",
-        paint: {
-          "fill-color": "#2b3e4a",
-          "fill-outline-color": "#526570",
-        },
+        paint: paint.land,
       },
       {
         id: "borders",
         type: "line",
         source: "countries",
         paint: {
-          "line-color": "#6c7b82",
-          "line-opacity": 0.48,
+          ...paint.borders,
+          "line-opacity": 0.65,
           "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 5, 1],
         },
       },
@@ -102,7 +169,7 @@ export function globeStyle(): StyleSpecification {
         type: "line",
         source: "grid",
         paint: {
-          "line-color": "#a1b5bf",
+          ...paint.graticule,
           "line-opacity": 0.13,
           "line-width": 0.7,
           "line-dasharray": [2, 5],
@@ -133,9 +200,8 @@ export function globeStyle(): StyleSpecification {
           "text-padding": 6,
         },
         paint: {
-          "text-color": "#a9bac3",
+          ...paint["country-labels"],
           "text-opacity": 0.88,
-          "text-halo-color": "#263845",
           "text-halo-width": 1.1,
         },
       },

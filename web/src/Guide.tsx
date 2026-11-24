@@ -4,9 +4,11 @@ import { BookOpen, X } from "lucide-react";
 export default function Guide() {
   return (
     <Dialog.Root>
-      <Dialog.Trigger className="guide-button">
+      <Dialog.Trigger className="guide-button" aria-label="Forecast guide">
         <BookOpen size={16} />
-        Forecast guide
+        <span>
+          <span className="guide-prefix">Forecast </span>guide
+        </span>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="overlay" />
