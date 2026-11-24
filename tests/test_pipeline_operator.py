@@ -1,14 +1,17 @@
 import http.client
 import json
+import os
+import subprocess
 import threading
 import time
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
 from services.pipeline.contract import REPLAYS
 from services.pipeline.operator import handler_for
-from services.pipeline.operator_backend import CloudOperator, LocalOperator
+from services.pipeline.operator_backend import AwsError, CloudOperator, LocalOperator
 
 
 @pytest.fixture
@@ -87,3 +90,49 @@ def test_cloud_panel_checks_account_before_any_actions(monkeypatch):
     )
     with pytest.raises(ValueError, match="identity"):
         CloudOperator("222222222222", "demo")
+
+
+def test_cloud_panel_reads_an_absent_lease_from_the_cli(monkeypatch):
+    def run(command, **kwargs):
+        output = '{"Account":"111111111111","Arn":"presenter"}' if command[1] == "sts" else ""
+        return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    operator = CloudOperator("111111111111", "demo")
+    assert operator.item("skycalm-dev-pipeline", "active") == {}
+    with pytest.raises(AwsError, match="unreadable"):
+        operator.aws("cloudwatch", "describe-alarms")
+
+
+@pytest.mark.parametrize("failure_count", [0, 1])
+def test_command_line_refresh_uses_pipeline_admission(tmp_path, monkeypatch, failure_count):
+    # The executable records the exact API request and returns an EventBridge response.
+    fake = tmp_path / "aws"
+    fake.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1 $2" = "sts get-caller-identity" ]; then echo "$TF_VAR_account_id"; exit; fi\n'
+        '[ "$1 $2 $3" = "events put-events --entries" ] || exit 9\n'
+        'printf "%s" "$4" > "$TEST_ENTRIES"\n'
+        'printf "%s" "$TEST_RESULT"\n'
+    )
+    fake.chmod(0o700)
+    entries = tmp_path / "entries.json"
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("TF_VAR_account_id", "111111111111")
+    monkeypatch.setenv("TEST_ENTRIES", str(entries))
+    entry = {"ErrorCode": "ThrottlingException"} if failure_count else {"EventId": "accepted"}
+    monkeypatch.setenv(
+        "TEST_RESULT", json.dumps({"FailedEntryCount": failure_count, "Entries": [entry]})
+    )
+    script = Path(__file__).resolve().parents[1] / "scripts/run_grid.sh"
+    result = subprocess.run(["bash", str(script), REPLAYS[0]], capture_output=True, text=True)
+    assert result.returncode == failure_count
+    [event] = json.loads(entries.read_bytes())
+    assert event["EventBusName"] == "skycalm-dev-pipeline"
+    assert event["DetailType"] == "forecast.run.available"
+    assert json.loads(event["Detail"]) == {
+        "mode": "live",
+        "runId": REPLAYS[0],
+        "jobId": "live-" + REPLAYS[0],
+    }
+    assert ("arn:aws:states:" in result.stdout) is (failure_count == 0)

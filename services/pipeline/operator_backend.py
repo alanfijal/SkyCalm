@@ -152,7 +152,13 @@ class CloudOperator:
         if result.returncode:
             code = re.search(r"\(([A-Za-z0-9.]+)\) when calling", result.stderr)
             raise AwsError(code.group(1) if code else "AWS CLI session or request unavailable")
-        return json.loads(result.stdout)
+        # The CLI omits stdout entirely when GetItem finds no matching key.
+        if args[:2] == ("dynamodb", "get-item") and not result.stdout.strip():
+            return {}
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise AwsError("AWS CLI returned an unreadable response") from exc
 
     def event(self, kind, detail):
         entries = [
