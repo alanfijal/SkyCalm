@@ -52,6 +52,7 @@ python -m ruff check grid services scripts tests
 python -m pytest -q
 python scripts/package_lambda.py
 (cd web && npm ci && npm run lint && npm test && npm run build)
+(cd web && npx playwright install --only-shell chromium && npm run test:layout)
 terraform fmt -check -recursive infra
 for directory in infra/bootstrap infra/environments/dev; do
   terraform -chdir="$directory" init -backend=false -input=false -lockfile=readonly

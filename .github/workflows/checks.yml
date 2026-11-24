@@ -31,6 +31,11 @@ jobs:
         working-directory: web
       - run: npm run lint && npm test && npm run build && npm audit --omit=dev --audit-level=high
         working-directory: web
+      - name: Check responsive layouts and themes in Chromium
+        working-directory: web
+        run: |
+          npx playwright install --with-deps --only-shell chromium
+          npm run test:layout
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: 1.17.0
