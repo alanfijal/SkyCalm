@@ -1,6 +1,8 @@
-"""Build the read-only forecast Lambda archive from hash-locked wheels."""
+"""Build the shared Lambda archive from hash-locked wheels."""
 
 import argparse
+import csv
+import io
 import shutil
 import subprocess
 import sys
@@ -9,6 +11,16 @@ from tempfile import TemporaryDirectory
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def archive_bytes(path: Path, members: set[str]) -> bytes:
+    if path.name != "RECORD" or path.parent.suffix != ".dist-info":
+        return path.read_bytes()
+    # pip records scripts with a local interpreter shebang. Lambda omits those scripts.
+    output = io.StringIO(newline="")
+    with path.open(encoding="utf-8", newline="") as record:
+        csv.writer(output).writerows(row for row in csv.reader(record) if row[0] in members)
+    return output.getvalue().encode("utf-8")
 
 
 def main() -> None:
@@ -63,14 +75,20 @@ def main() -> None:
             shutil.copy(ROOT / "grid" / name, grid / name)
         shutil.copytree(ROOT / "services/forecast/data", pkg / "data")
         temporary = args.output.with_suffix(".tmp")
+        members = {
+            path.relative_to(stage).as_posix()
+            for path in stage.rglob("*")
+            if path.is_file()
+            and "__pycache__" not in path.parts
+            and not path.is_relative_to(stage / "bin")
+        }
         with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
-            for path in sorted(stage.rglob("*")):
-                rel = path.relative_to(stage)
-                if not path.is_file() or "__pycache__" in rel.parts or rel.parts[0] == "bin":
-                    continue
-                info = ZipInfo(rel.as_posix(), date_time=(2020, 1, 1, 0, 0, 0))
+            for name in sorted(members):
+                info = ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
                 info.external_attr = 0o100644 << 16
-                archive.writestr(info, path.read_bytes(), compress_type=ZIP_DEFLATED)
+                archive.writestr(
+                    info, archive_bytes(stage / name, members), compress_type=ZIP_DEFLATED
+                )
         temporary.replace(args.output)
 
 
