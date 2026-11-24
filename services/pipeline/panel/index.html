@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="skycalm-token" content="{{token}}" />
+    <meta name="color-scheme" content="dark" />
+    <title>SkyCalm · Forecast operations</title>
+    <link rel="stylesheet" href="/panel.css" />
+    <script type="module" src="/panel.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <a class="brand" href="/demo">SkyCalm</a>
+        <nav aria-label="Operator">
+          <a id="demo-link" href="/demo">Pipeline</a
+          ><a id="health-link" href="/health">Health</a>
+        </nav>
+        <span id="environment">Connecting…</span>
+      </div>
+    </header>
+    <main>
+      <p id="error" role="alert" hidden></p>
+      <section id="demo" hidden>
+        <h1>Forecast pipeline</h1>
+        <div class="layout">
+          <section class="card inputs">
+            <h2>Publish a forecast</h2>
+            <label for="run">Archived GFS run</label
+            ><select id="run"></select>
+            <p>
+              Rebuild the selected grid and update the Edinburgh–Porto route.
+            </p>
+            <button id="publish" class="primary" disabled>
+              Publish replay
+            </button>
+            <div id="cloud-actions" hidden>
+              <button id="discover">Check NOAA for a new run</button>
+            </div>
+          </section>
+          <section class="card">
+            <div class="section-head">
+              <h2>Run progress</h2>
+              <span id="clock"></span>
+            </div>
+            <ol id="steps">
+              <li>Request accepted</li>
+              <li>Build weather grid</li>
+              <li>Deliver forecast</li>
+              <li>Route updated</li>
+            </ol>
+            <p id="job-status" role="status">Waiting for a run.</p>
+            <code id="job-id"></code>
+          </section>
+        </div>
+        <section class="card route">
+          <div class="section-head">
+            <h2>Edinburgh <span aria-hidden="true">→</span> Porto</h2>
+            <span id="peak"></span>
+          </div>
+          <p id="route-status">
+            The updated forecast appears here when the run finishes.
+          </p>
+          <div id="ribbon" role="img" aria-label="No updated forecast"></div>
+          <div id="legend" hidden>
+            <span class="smooth">Smooth</span><span class="light">Light</span
+            ><span class="moderate">Moderate</span
+            ><span class="severe">Severe</span>
+          </div>
+        </section>
+      </section>
+      <section id="health" hidden>
+        <div class="section-head">
+          <h1>Service health</h1>
+          <button id="refresh">Refresh</button>
+        </div>
+        <section class="card">
+          <h2>Forecast services</h2>
+          <dl id="services"></dl>
+        </section>
+        <section id="cloud-health" hidden class="layout health">
+          <div class="card">
+            <h2>Queue depth</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Queue</th>
+                  <th>Visible</th>
+                  <th>In flight</th>
+                </tr>
+              </thead>
+              <tbody id="queues"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h2>CloudWatch alarms</h2>
+            <dl id="alarms"></dl>
+          </div>
+        </section>
+        <section id="test-controls" hidden class="card">
+          <h2>Test dead-letter handling</h2>
+          <p>
+            Sends one labelled message to the route consumer. After three failed
+            deliveries SQS moves it to the route dead-letter queue.
+          </p>
+          <button id="probe">Send test event</button>
+          <p role="status" id="probe-status"></p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
