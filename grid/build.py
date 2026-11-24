@@ -3,7 +3,7 @@
 import argparse
 import hashlib
 import json
-import logging
+import signal
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -11,11 +11,9 @@ from datetime import timedelta
 from pathlib import Path
 
 from grid.compute import decode, encode
-from grid.source import GfsSource, SourceError
+from grid.source import GfsSource, NotReady, SourceError
 from services.forecast.schema import LEADS, SCORER, issue_time, tile_name, utc_text
 from services.forecast.storage import LocalStore
-
-log = logging.getLogger(__name__)
 
 
 def build_lead(run_id: str, lead: int, directory: Path) -> dict:
@@ -62,21 +60,22 @@ def main() -> None:
     parser.add_argument("--directory", type=Path, default=Path(".local/weather"))
     parser.add_argument("--aws", action="store_true", help="Publish to configured AWS resources")
     args = parser.parse_args()
+    # The essential Fargate container exits at the deadline, including during retries.
+    signal.alarm(600)
     store = LocalStore(args.directory)
     if args.aws:
         from services.forecast.aws import AwsStore
 
         store = AwsStore.from_env()
     source = GfsSource()
-    try:
-        run_id = source.latest() if args.run == "latest" else args.run
-    finally:
-        source.http.clear()
     started = time.monotonic()
     try:
+        run_id = source.latest() if args.run == "latest" else args.run
         result = build(run_id, store)
-    except (ValueError, SourceError, OSError) as exc:
+    except (ValueError, NotReady, SourceError, OSError) as exc:
         parser.exit(1, f"Grid build failed: {exc}\n")
+    finally:
+        source.http.clear()
     print(
         json.dumps(
             {

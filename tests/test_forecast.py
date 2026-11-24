@@ -7,7 +7,7 @@ import pytest
 
 from services.forecast.api import RequestError, airports, respond, search
 from services.forecast.http import response
-from services.forecast.product import CAPE_LIMITS, TI1_LIMITS, category, sample
+from services.forecast.product import CAPE_LIMITS, TI1_LIMITS, category, interpolate, sample
 from services.forecast.route import route_points
 from services.forecast.schema import HEIGHT, MISSING, PLANES, WIDTH
 from services.forecast.storage import REPLAY_ROOT, LocalStore
@@ -45,6 +45,9 @@ def test_great_circle_endpoints_spacing_altitude_and_reverse():
 
 
 def test_thresholds_include_boundaries_and_missing_is_distinct():
+    assert interpolate(5.0, None, 0) == 5
+    assert interpolate(None, 9.0, 1) == 9
+    assert interpolate(None, 9.0, 0.5) is None
     assert [category(x, TI1_LIMITS) for x in (0, 2, 6, 12)] == [
         "smooth",
         "light",

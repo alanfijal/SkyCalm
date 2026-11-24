@@ -1,0 +1,8 @@
+**
+!grid
+!grid/*.py
+!grid/requirements.txt
+!services
+!services/__init__.py
+!services/forecast
+!services/forecast/*.py

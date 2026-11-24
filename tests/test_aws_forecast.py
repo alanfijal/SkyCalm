@@ -8,6 +8,7 @@ from moto import mock_aws
 
 from services.forecast import handler
 from services.forecast.aws import AwsStore
+from services.forecast.schema import SCORER
 from services.forecast.storage import REPLAY_ROOT
 
 
@@ -27,8 +28,15 @@ def test_cloud_publication_and_http_api_replay(monkeypatch):
     )
     store = AwsStore(s3, bucket, table)
     pin = "gfs-20261124-12"
+    assert store.manifest(pin) is None
+    for file in (REPLAY_ROOT / pin).iterdir():
+        s3.put_object(
+            Bucket=bucket, Key=f"archive/{SCORER}/{pin}/{file.name}", Body=file.read_bytes()
+        )
     manifest = store.manifest(pin)
     assert manifest and store.published_manifest(pin) is None and store.latest() is None
+    lead = manifest["leads"][0]
+    assert store.tile(pin, 0, lead["sha256"]) == (REPLAY_ROOT / pin / "f000.bin.gz").read_bytes()
     store.publish(REPLAY_ROOT / pin, manifest)
     store.publish(REPLAY_ROOT / pin, manifest)
     assert store.published_manifest(pin) == manifest and store.latest() == pin

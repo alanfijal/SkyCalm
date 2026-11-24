@@ -61,18 +61,19 @@ class AwsStore:
         published = self.published_manifest(run_id)
         if published:
             return published
-        archive = REPLAY_ROOT / run_id / "manifest.json"
-        return (
-            validate_manifest(json.loads(archive.read_bytes()), run_id)
-            if archive.is_file()
-            else None
-        )
+        if run_id not in self.replays():
+            return None
+        try:
+            data = self.read(f"archive/{SCORER}/{run_id}/manifest.json", 64_000)
+        except self.s3.exceptions.NoSuchKey:
+            return None
+        return validate_manifest(json.loads(data), run_id)
 
     def tile(self, run_id: str, lead: int, digest: str) -> bytes:
         try:
             data = self.read(self.prefix(run_id) + digest + ".bin.gz", 300_000)
         except self.s3.exceptions.NoSuchKey:
-            data = (REPLAY_ROOT / run_id / tile_name(lead)).read_bytes()
+            data = self.read(f"archive/{SCORER}/{run_id}/{tile_name(lead)}", 300_000)
         return checked_tile(data, digest)
 
     def advance(self, run_id: str) -> None:

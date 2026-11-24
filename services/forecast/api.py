@@ -122,7 +122,10 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         )
     if selection == "latest" and departure < clock - timedelta(minutes=5):
         raise RequestError("past_departure", "Choose an upcoming departure or switch to replay.")
-    distance, points = route_points(origin, dest, departure)
+    try:
+        distance, points = route_points(origin, dest, departure)
+    except ValueError as exc:
+        raise RequestError("same_airport", str(exc)) from exc
     cubes = {}
     digests = {item["lead"]: item["sha256"] for item in manifest["leads"]}
     start_hours = (departure - issued).total_seconds() / 3600

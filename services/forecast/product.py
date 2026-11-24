@@ -58,6 +58,10 @@ def bilinear(cube: array, plane: int, lat: float, lon: float) -> float | None:
 
 
 def interpolate(a: float | None, b: float | None, t: float) -> float | None:
+    if t == 0:
+        return a
+    if t == 1:
+        return b
     if a is None or b is None:
         return None
     return a + (b - a) * t
