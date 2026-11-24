@@ -1,0 +1,18 @@
+SkyCalm map and airport data
+
+Made with Natural Earth. Country boundaries and label positions come from the
+1:50,000,000 Admin 0 Countries dataset. Source geometries are generalized for
+this scale. The bundled copy keeps country names and codes, rounds coordinates
+to 0.001 degree and drops collapsed rings. Labels use the source's placement.
+The maps are public domain.
+Source: https://github.com/nvkelso/natural-earth-vector/blob/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_countries.geojson
+Terms: https://www.naturalearthdata.com/about/terms-of-use/
+
+The scheduled-service airport catalog comes from OurAirports, public domain.
+Codes use the published IATA code or, when absent, the published ICAO code.
+The catalog includes worldwide codes so unsupported routes can be identified.
+Source: https://github.com/davidmegginson/ourairports-data/blob/52f8e87ff0e29bc0f260ac20b261c05ec575a1a8/airports.csv
+Terms: https://ourairports.com/data/
+Field definitions: https://ourairports.com/help/data-dictionary.html
+
+Rebuild from the repository root using python3 scripts/prepare_geodata.py.
