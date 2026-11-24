@@ -47,6 +47,8 @@ resource "aws_iam_role_policy" "forecast" {
     local.find_weather,
     { Effect = "Allow", Action = "s3:GetObject", Resource = ["${local.weather_arn}/runs/ti1-cape-v1/*", "${local.weather_arn}/archive/ti1-cape-v1/*"] },
     { Effect = "Allow", Action = "dynamodb:GetItem", Resource = aws_dynamodb_table.runs.arn, Condition = local.head_key },
+    { Effect = "Allow", Action = "dynamodb:GetItem", Resource = aws_dynamodb_table.runs.arn, Condition = local.observation_key },
+    { Effect = "Allow", Action = "s3:GetObject", Resource = ["${local.weather_arn}/observations/snapshots/*", "${local.weather_arn}/archive/observations/*"] },
     { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.forecast.arn}:*" }
   ] })
 }

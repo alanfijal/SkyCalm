@@ -2,15 +2,18 @@ import { Clock3, Mountain, Wind } from "lucide-react";
 import { categoryColor } from "./theme";
 import { LABELS, clock, duration } from "./types";
 import type { Forecast } from "./types";
+import type { WeatherItem } from "./observations";
 
 export default function Timeline({
   forecast,
   index,
   onSelect,
+  observations,
 }: {
   forecast: Forecast;
   index: number;
   onSelect: (i: number) => void;
+  observations: WeatherItem[] | null;
 }) {
   const { samples, origin, destination } = forecast;
   const p = samples[index];
@@ -91,6 +94,25 @@ export default function Timeline({
             </span>
           </div>
           <p>{detail}</p>
+          {observations && (
+            <div className="segment-weather">
+              <b>Nearby observations</b>
+              {observations.length ? (
+                <ul>
+                  {observations.slice(0, 4).map((item) => (
+                    <li key={item.id}>
+                      {item.kind === "sigmet" ? "SIGMET " : ""}
+                      {item.source} · {item.intensity} · {clock(item.from)} UTC
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>
+                  No matching weather reports or advisories for this section.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>

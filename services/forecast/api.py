@@ -60,6 +60,27 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
     clock = now or datetime.now(UTC)
     if path == "/api/airports":
         return {"airports": search(query.get("q", ""))}
+    if path == "/api/observations":
+        from services.observations.awc import instant
+
+        selection = query.get("run", "latest")
+        if selection != "latest":
+            try:
+                issue_time(selection)
+            except ValueError as exc:
+                raise RequestError("invalid_run", "Choose a valid forecast run.", 400) from exc
+        snapshot = store.observation_snapshot(selection)
+        if snapshot is None:
+            raise RequestError(
+                "no_observations", "No weather observations for this source yet.", 404
+            )
+        stamp = instant(snapshot["asOf"])
+        return {
+            **snapshot,
+            "mode": "live" if selection == "latest" else "replay",
+            "stale": selection == "latest"
+            and (stamp is None or clock - stamp > timedelta(hours=1)),
+        }
     if path == "/api/runs":
         latest = store.latest()
         live = store.manifest(latest) if latest else None

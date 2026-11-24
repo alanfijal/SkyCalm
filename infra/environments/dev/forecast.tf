@@ -6,13 +6,18 @@ variable "image_digest" {
     error_message = "Pin the image by its full SHA-256 digest."
   }
 }
+variable "observation_window" {
+  type    = object({ start = string, end = string })
+  default = null
+}
 module "forecast" {
-  source            = "../../modules/forecast"
-  account_id        = var.account_id
-  image_digest      = var.image_digest
-  lambda_zip        = abspath("${path.root}/../../../build/forecast.zip")
-  web_directory     = abspath("${path.root}/../../../web/dist")
-  archive_directory = abspath("${path.root}/../../../services/forecast/data/replay")
+  source             = "../../modules/forecast"
+  account_id         = var.account_id
+  image_digest       = var.image_digest
+  observation_window = var.observation_window
+  lambda_zip         = abspath("${path.root}/../../../build/forecast.zip")
+  web_directory      = abspath("${path.root}/../../../web/dist")
+  archive_directory  = abspath("${path.root}/../../../services/forecast/data/replay")
 }
 output "website" { value = module.forecast.website }
 output "api" { value = module.forecast.api }

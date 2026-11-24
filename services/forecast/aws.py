@@ -42,6 +42,20 @@ class AwsStore:
             (m.parent.name for m in REPLAY_ROOT.glob("gfs-*/manifest.json")), reverse=True
         )
 
+    def observation_snapshot(self, selection: str) -> dict | None:
+        if selection == "latest":
+            head = self.table.get_item(Key={"pk": "observations#awc"}, ConsistentRead=True)
+            if "Item" not in head:
+                return None
+            key = "observations/snapshots/" + head["Item"]["version"] + ".json"
+        else:
+            issue_time(selection)
+            key = "archive/observations/" + selection + ".json"
+        try:
+            return json.loads(self.read(key, 2_000_000))
+        except self.s3.exceptions.NoSuchKey:
+            return None
+
     def read(self, key: str, limit: int) -> bytes:
         response = self.s3.get_object(Bucket=self.bucket, Key=key)
         with response["Body"] as body:
