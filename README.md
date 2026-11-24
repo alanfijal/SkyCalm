@@ -2,6 +2,8 @@
 
 SkyCalm shows where a European passenger route may feel bumpy. Choose two airports and a UTC departure to see the estimated path on a globe. Move along the timeline to inspect the local category, time and altitude. The first release uses real NOAA weather and a physics-based index.
 
+[Open the live SkyCalm forecast](https://d9w1t8ghthajo.cloudfront.net/)
+
 **For passenger education only. Do not use SkyCalm for navigation, flight planning or safety decisions.**
 
 ## Run it on your laptop
@@ -63,4 +65,6 @@ done
 
 These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. The Lambda ZIP normalizes entry dates and uses hash-locked wheels. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
 
-**Deployment status.** Phase 1 is available locally. An AWS deployment requires a reviewed plan, the expected account in `TF_VAR_account_id`, an authorized temporary identity and the published ECR image digest. Verify the identity with `bash scripts/check_aws.sh`. Bootstrap state starts locally and needs an encrypted backup. The dev root uses a versioned S3 backend and native locking. After approval and deployment, `bash scripts/run_grid.sh gfs-YYYYMMDD-HH` admits one dated task when the cluster is idle. Each run prints its task ARN. The initial local release creates no schedule. The full-project planning model runs with `python3 scripts/estimate_cost.py`.
+**Deployment status.** Phase 1 went live in Stockholm on 24 November 2026. The Fargate worker completed all 13 forecast steps and exited successfully. The public site served both a current Barcelona–Stockholm forecast and its archived replay. When the latest weather run falls outside the 36-hour window, the app opens the dated replay. Weather refreshes are manual.
+
+For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and ECR repository, keep an encrypted backup of bootstrap state, and pin the ECR image digest in the dev plan. The dev backend uses S3 native locking. To refresh a deployed environment, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH` once with a complete NOAA cycle and keep the task ARN. The planning model runs with `python3 scripts/estimate_cost.py`.
