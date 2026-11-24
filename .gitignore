@@ -11,6 +11,7 @@ agentic_context/
 .cursor/
 CLAUDE.md
 SkyCalm_build_prompt.md
+/docs/
 .local/
 .DS_Store
 .idea/

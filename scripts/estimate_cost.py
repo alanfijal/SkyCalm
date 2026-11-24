@@ -1,4 +1,4 @@
-"""Estimate gross USD for the four bounded SkyCalm workloads in docs/costs.md."""
+"""Estimate gross Stockholm costs for four bounded SkyCalm workloads, in USD."""
 
 from dataclasses import dataclass
 

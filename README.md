@@ -6,14 +6,6 @@ SkyCalm is a passenger guide to the parts of a European flight where the air may
 
 This is an ESADE Cloud Solutions project. The team reviews each phase before the next one begins. Phase 0 covers the design and demo plan. The first passenger-facing release is the Phase 1 route forecast.
 
-## Review the plan
-
-- [Architecture diagram and one forecast from source to phone](docs/architecture.md)
-- [Design decisions and regional availability](docs/decisions.md)
-- [Stockholm cost estimate and network comparison](docs/costs.md)
-- [Classroom walkthrough, recording and phase milestones](docs/demo.md)
-- [Team actions and current approval](docs/actions.md)
-
 ## Run the Phase 0 checks
 
 The cost estimate runs on Python 3.10 or later with the standard library. Use Python 3.12 for the project checks.
@@ -39,6 +31,5 @@ python -m pytest -q
 | `infra/bootstrap/` | Remote state and tightly scoped deployment roles |
 | `infra/modules/`, `infra/environments/dev/` | Reusable Terraform organized by service, composed in one active environment |
 | `scripts/`, `tests/`, `.github/workflows/` | Cost model, checks and CI |
-| `docs/` | Architecture, pricing assumptions, demo evidence and team decisions |
 
 Use descriptive feature branches and commit one logical change at a time. Phase 0 can be reviewed entirely on a laptop. Cloud deployment commands and a reviewed Terraform plan arrive with the first deployable slice.

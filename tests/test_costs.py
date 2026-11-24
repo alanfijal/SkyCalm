@@ -1,5 +1,4 @@
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -39,6 +38,10 @@ def test_invalid_network_option_fails() -> None:
         estimate(SCENARIOS["Demo day"], private_azs=3)
 
 
-def test_published_cost_table_matches_the_calculation() -> None:
-    report = Path(__file__).resolve().parents[1] / "docs" / "costs.md"
-    assert cost_table() in report.read_text()
+def test_table_reports_all_workloads_in_order_for_each_network() -> None:
+    rows = cost_table().splitlines()
+    assert rows[0] == "| USD before credits | Demo day | Idle month | Demo month | Continuous |"
+    for row, azs in zip(rows[-3:], (0, 1, 2), strict=True):
+        amounts = row.split("|")[2:-1]
+        expected = [sum(estimate(w, private_azs=azs).values()) for w in SCENARIOS.values()]
+        assert [value.strip() for value in amounts] == [f"**{total:.2f}**" for total in expected]
