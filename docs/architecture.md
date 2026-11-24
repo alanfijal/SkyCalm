@@ -3,61 +3,56 @@
 **Design for team review · Stockholm · 24 November 2026.** One public weather run can serve many passengers. The expensive work happens once per weather run. A route request reads the resulting tiles and samples them at the times and heights of the passenger's estimated journey.
 
 ```mermaid
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      top: 6
+      bottom: 17
+---
 flowchart TB
-  pax["Passenger · browser / PWA"]
-  noaa["NOAA GFS · public weather"]
-  obs["AWC reports / SIGMETs<br/>OpenSky traffic if licensed"]
-  subgraph edge["AWS global edge · public content"]
-    cdn["CloudFront + WAF"]
-    web["Private S3 · static web"]
-    cdn -->|OAC| web
-  end
-  subgraph eu["AWS account · Europe Stockholm"]
-    api["HTTP API + Lambda<br/>forecast / flights / admin"]
-    auth["Cognito · PKCE + scopes"]
-    intake["SQS → readiness Lambda<br/>or a timed readiness check"]
-    feeds["Scheduler → feed Lambdas"]
-    bus["EventBridge · project bus"]
-    flow["Step Functions Standard"]
-    subgraph net["Project VPC · grid compute"]
-      grid["ECS Fargate · bounded grid task"]
+  wx["NOAA GFS · indexed weather"]
+  obs["AWC observations<br/>OpenSky if licensed"]
+  subgraph eu["AWS Stockholm"]
+    intake["SQS + readiness Lambda"]
+    flow["EventBridge → Step Functions"]
+    subgraph vpc["Project VPC"]
+      task["ECS Fargate<br/>Score one weather run"]
     end
-    lake["S3 · tiles, archive, models"]
-    db["DynamoDB · run index,<br/>watches and delivery records"]
-    jobs["Fan-out Lambda → SQS + DLQ<br/>→ per-flight change worker"]
-    notify["Notifier · Web Push / SES"]
-    analytics["Glue catalog + Athena"]
-    ml["On-demand SageMaker jobs<br/>+ Model Registry"]
-    brief["Bedrock · validated briefing"]
-    intake -->|run available| bus
-    bus -->|run available| flow --> grid
-    grid -->|immutable run tiles| lake
-    flow -->|commit ready marker and outbox| db
-    db -->|Streams publisher · ready or changed| bus
-    bus -->|tiles ready| jobs
-    jobs -->|read watches / record change| db
-    bus -->|flight changed or reminder| notify
-    feeds --> lake
-    feeds --> db
-    api --> lake
-    api --> db
-    api --> brief
-    lake --> analytics
-    lake --> ml
-    ml -->|approved model| lake
-    auth -.->|JWT verification| api
+    feeds["Scheduler + feed Lambdas"]
+    data["S3 · tiles and archive<br/>DynamoDB · ready index and watches"]
+    fan["EventBridge → SQS + DLQ<br/>Lambda checks watched flights"]
+    notify["Notifier Lambda<br/>Web Push or SES"]
+    api["HTTP API + Lambda<br/>Forecast and flight routes"]
+    auth["Cognito · PKCE and scopes"]
+    site["Private S3 · web app"]
+    analysis["Glue + Athena<br/>SageMaker jobs and registry"]
+    brief["Bedrock · briefing"]
+    intake -->|run available| flow --> task
+    task -->|publish completed grid| data
+    feeds --> data
+    data -->|tiles ready via outbox| fan
+    fan -->|flight changed via outbox| notify
+    data -->|sample route| api
+    data -->|history| analysis
+    auth -.->|JWT| api
+    brief -.->|validated text| api
   end
-  pax --> cdn
-  cdn -->|public weather GET · signed origin| api
-  pax -->|sign in| auth
-  pax -->|itineraries · direct regional TLS| api
-  noaa -->|new object via SNS| intake
-  noaa -->|indexed fields| grid
+  subgraph edge["AWS global edge"]
+    cdn["CloudFront + WAF"]
+  end
+  site -->|OAC| cdn
+  api -->|public weather| cdn
+  wx -->|SNS · new object| intake
   obs --> feeds
-  notify -->|generic alert| pax
+  cdn --> passenger["Passenger · web and phone"]
+  api -->|personal routes · EU API| passenger
+  notify -->|generic alert| passenger
 ```
 
 **Follow one run.** A source notification identifies a candidate run. Admission checks the required lead files and an operator-set run allowance. The workflow records the provider, UTC issue time, input checksums, algorithm version and chosen model under a run ID. Retries reuse the same computation key. The task reads indexed weather messages and writes versioned tiles and a complete manifest before the workflow can advance the latest-ready pointer. Late runs can be read explicitly. They cannot displace a newer run. Replays pin that same manifest and never advance the live pointer.
+
+Each classroom reset creates a fresh replay session and seeds only that session's watches. Key a replay execution by session, source run and scorer version. Double-clicking **Publish** in one session reuses the execution. Starting a new rehearsal runs the real task again against the same archived inputs, writes to its own prefix and delivers only to consenting demo recipients.
 
 **Follow one flight.** Both scheduled-service airports must lie inside 34–72°N, 25°W–45°E. Sample the great-circle route about every 25 km. Estimate cruise at FL350 and 800 km/h. Allocate the first and last 150 km to climb and descent, shortening them symmetrically on short routes. Estimate passage time at each point from departure in UTC. Interpolate only between available forecast leads and pressure levels inside coverage. Time beyond the 36-hour horizon, absent levels near the ground and any out-of-box segment have explicit unavailable states. A missing observation means no report. Display run age, route assumptions and the passenger-use disclaimer alongside results.
 
