@@ -47,6 +47,13 @@ class LocalStore:
             return self.replay_root / run_id
         return local
 
+    def published_manifest(self, run_id: str) -> dict | None:
+        issue_time(run_id)
+        path = self.root / SCORER / run_id / "manifest.json"
+        if path.is_file():
+            return validate_manifest(json.loads(path.read_bytes()), run_id)
+        return None
+
     def manifest(self, run_id: str) -> dict | None:
         path = self.location(run_id) / "manifest.json"
         try:
@@ -71,7 +78,7 @@ class LocalStore:
         return read_tile(self.location(run_id) / tile_name(lead), digest)
 
     def advance(self, run_id: str) -> None:
-        if not self.manifest(run_id):
+        if not self.published_manifest(run_id):
             raise ValueError("Incomplete weather run")
         parent = self.root / SCORER
         parent.mkdir(parents=True, exist_ok=True)

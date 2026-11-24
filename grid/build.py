@@ -34,7 +34,7 @@ def build_lead(run_id: str, lead: int, directory: Path) -> dict:
 
 def build(run_id: str, store) -> dict:
     issued = issue_time(run_id)
-    existing = store.manifest(run_id)
+    existing = store.published_manifest(run_id)
     if existing:
         store.advance(run_id)
         return existing

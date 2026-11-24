@@ -1,0 +1,69 @@
+"""Serve built public assets and the shared forecast API on loopback."""
+
+import argparse
+import logging
+import mimetypes
+import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+from services.forecast.http import response
+from services.forecast.storage import REPLAY_ROOT, LocalStore
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def make_handler(store: LocalStore, public: Path):
+    class Handler(BaseHTTPRequestHandler):
+        def send(self, status: int, headers: dict, body: bytes) -> None:
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            request = urlsplit(self.path)
+            if request.path.startswith("/api/"):
+                result = response("GET", request.path, request.query, store, uuid.uuid4().hex)
+                self.send(result["statusCode"], result["headers"], result["body"].encode())
+                return
+            local = (public / (unquote(request.path).lstrip("/") or "index.html")).resolve()
+            if not local.is_relative_to(public) or not local.is_file():
+                self.send(404, {"Content-Type": "text/plain"}, b"Page unavailable.")
+                return
+            self.send(
+                200,
+                {
+                    "Content-Type": mimetypes.guess_type(local.name)[0]
+                    or "application/octet-stream",
+                    "X-Content-Type-Options": "nosniff",
+                },
+                local.read_bytes(),
+            )
+
+        def log_message(self, fmt: str, *args) -> None:
+            pass  # Avoid logging personal itinerary query strings.
+
+    return Handler
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", default=4173, type=int)
+    parser.add_argument("--data", default=ROOT / ".local/weather", type=Path)
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    handler = make_handler(LocalStore(args.data, REPLAY_ROOT), (ROOT / "web/dist").resolve())
+    with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
+        print(f"SkyCalm is available at http://127.0.0.1:{server.server_port}", flush=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+
+if __name__ == "__main__":
+    main()
