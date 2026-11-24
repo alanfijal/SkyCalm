@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { clock, defaultDeparture, duration, type Run } from "./types";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  clock,
+  defaultDeparture,
+  duration,
+  fetchWithRetry,
+  type Run,
+} from "./types";
 
 const run: Run = {
   runId: "gfs-20261124-12",
@@ -23,5 +29,29 @@ describe("forecast controls", () => {
     expect(clock("2026-11-24T20:30:00+01:00")).toBe("19:30");
     expect(duration(59.8)).toBe("1h");
     expect(duration(90)).toBe("1h 30m");
+  });
+});
+
+describe("public forecast requests", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("retries a dropped connection once and returns the server response", async () => {
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("offline"))
+      .mockResolvedValueOnce(new Response("ok"));
+    vi.stubGlobal("fetch", fetch);
+    expect(await (await fetchWithRetry("/api/runs", 1000)).text()).toBe("ok");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+  it("returns validation errors immediately and honours cancellation", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 422 }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await fetchWithRetry("/api/forecast", 1000)).status).toBe(422);
+    await expect(
+      fetchWithRetry("/api/forecast", 1000, AbortSignal.abort()),
+    ).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

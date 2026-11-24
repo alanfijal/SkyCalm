@@ -91,12 +91,35 @@ export function defaultDeparture(run: Run, live: boolean, now: string) {
   return new Date(time).toISOString().slice(0, 16);
 }
 let originRequest: Promise<string> | undefined;
+export async function fetchWithRetry(
+  url: string | URL,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const once = () => {
+    signal?.throwIfAborted();
+    const timeout = AbortSignal.timeout(timeoutMs);
+    return fetch(url, {
+      cache: "no-store",
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  };
+  try {
+    const first = await once();
+    if (first.status !== 429 && first.status < 500) return first;
+    await first.body?.cancel();
+  } catch (error) {
+    if (signal?.aborted) throw error;
+  }
+  await new Promise((resolve) =>
+    setTimeout(resolve, 250 + Math.random() * 100),
+  );
+  return once();
+}
+
 function apiOrigin(): Promise<string> {
   if (!originRequest) {
-    originRequest = fetch("/config.json", {
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    })
+    originRequest = fetchWithRetry("/config.json", 8000)
       .then(async (result) => {
         if (!result.ok)
           throw new Error("The forecast configuration could not be loaded.");
@@ -121,20 +144,9 @@ export async function getJson<T>(
   const configured = await apiOrigin();
   const url = new URL(configured + path, window.location.origin);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const timeout = AbortSignal.timeout(12000);
-    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
-    const res = await fetch(url, { signal: combined, cache: "no-store" });
-    if ((res.status === 429 || res.status >= 500) && attempt === 0) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 250 + Math.random() * 100),
-      );
-      continue;
-    }
-    const data = await res.json();
-    if (!res.ok)
-      throw new Error(data.message || "The forecast could not be loaded.");
-    return data as T;
-  }
-  throw new Error("The forecast could not be loaded.");
+  const res = await fetchWithRetry(url, 12000, signal);
+  const data = await res.json();
+  if (!res.ok)
+    throw new Error(data.message || "The forecast could not be loaded.");
+  return data as T;
 }
