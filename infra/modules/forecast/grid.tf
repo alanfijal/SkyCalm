@@ -17,6 +17,9 @@ resource "aws_ecs_task_definition" "grid" {
   memory                   = "2048"
   execution_role_arn       = aws_iam_role.task["execution"].arn
   task_role_arn            = aws_iam_role.task["grid"].arn
+  lifecycle {
+    create_before_destroy = true
+  }
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"

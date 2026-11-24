@@ -57,6 +57,27 @@ The collector reads the Aviation Weather Center on the server. A capped query ca
 
 Terraform defines an on-demand weather collector, a Glue table with daily partitions, and an Athena workgroup with a 10 MiB scan limit. The optional half-hourly schedule takes an explicit UTC window of up to two hours. Raw snapshots expire after seven days, working history after 30 days and query results after one day. The curated dates stay in the archive. Use the `skycalm-dev-weather` workgroup in Stockholm for [monthly report counts](analytics/monthly_reports.sql) and [dated advisories](analytics/advisories.sql).
 
+## Run a forecast from the operator panel
+
+From the repository root, use a Python 3.12 virtual environment and start the private panel.
+
+```sh
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m services.pipeline.operator
+```
+
+Open **http://127.0.0.1:4174/demo**, choose **21 Nov 2026, 06 UTC** and click **Publish replay**. The worker rebuilds all 13 forecast steps from archived GFS weather features, then recalculates the 69 samples on the Edinburgh–Porto route. The progress panel shows elapsed time and the updated route ribbon. **Health** opens the service status. Ctrl+C stops the panel. Local rehearsal works offline after installing the dependencies.
+
+With the pipeline deployed, start the same panel with `python -m services.pipeline.operator --aws --profile coldchain-console --account "$TF_VAR_account_id"`. Set `TF_VAR_account_id` to the approved account first. The server binds to your Mac's loopback address, verifies the AWS identity and signs requests with your CLI session. Terraform supplies a scoped operator policy for an authorized presenter. Actions are recorded locally in `.local/operator-actions.jsonl`. Cognito group access to a hosted panel is planned for Phase 4.
+
+On AWS, an EventBridge `forecast.run.available` event reaches the admission queue. Step Functions takes a DynamoDB lease, waits for one Fargate grid task, verifies its manifest and publishes `forecast.tiles.ready`. Two independent queues deliver this event to the route and audit consumers. Each writes an idempotent result. The worker uses a job-specific prefix for replay output. A completed live job can advance the public forecast after EventBridge accepts its ready event. A fresh forecast request then reads the new run. [Workflow and queues](infra/modules/pipeline/)
+
+- **Check NOAA for a new run** checks up to three recent cycles. A complete, newer cycle starts the same workflow using current GFS data. Scheduled checks are off by default. An optional Terraform `discovery_window` checks every 15 minutes for at most two hours.
+- **Health → Send test event** sends one labelled event through the routes queue. Three failed deliveries move it to the routes dead-letter queue. Refresh Health to see the queue depth and its CloudWatch alarm. Each delivery has a 90-second visibility timeout and the alarm evaluates a one-minute metric. Allow extra time for AWS to report the change. The message expires after seven days.
+- The classroom forecast is independent of the optional OpenSky traffic feed. Archived weather remains available after the upstream source files expire.
+
 ## Architecture and checks
 
 `grid/` contains the Linux/amd64 worker. `services/forecast/` implements the HTTP API shared by the local server and Lambda. The public GET routes are `/api/airports?q=BCN`, `/api/runs`, `/api/forecast` with `origin`, `destination`, `departure` and `run`, and `/api/observations?run=latest`. `web/` contains the React app, MapLibre globe and deck.gl route layer.

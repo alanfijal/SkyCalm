@@ -57,8 +57,8 @@ def decode(message: bytes, record: Record, run_id: str, lead: int) -> np.ndarray
         ec.codes_release(handle)
 
 
-def diagnostics(u: np.ndarray, v: np.ndarray, height: np.ndarray, latitudes: np.ndarray):
-    # Fields are ordered from south to north and low to high altitude.
+def wind_terms(u: np.ndarray, v: np.ndarray, height: np.ndarray, latitudes: np.ndarray):
+    # Keep the native-grid halo when calculating horizontal and vertical derivatives.
     dy = 6_371_000 * np.radians(STEP)
     dx = dy * np.cos(np.radians(latitudes))[None, :, None]
     dudx, dvdx = np.gradient(u, axis=2) / dx, np.gradient(v, axis=2) / dx
@@ -66,27 +66,41 @@ def diagnostics(u: np.ndarray, v: np.ndarray, height: np.ndarray, latitudes: np.
     dz = np.gradient(height, axis=0)
     dz = np.where(dz > 0, dz, np.nan)
     shear = np.hypot(np.gradient(u, axis=0), np.gradient(v, axis=0)) / dz
-    deformation = np.hypot(dudx - dvdy, dvdx + dudy)
+    return shear, np.hypot(dudx - dvdy, dvdx + dudy)
+
+
+def diagnostics(u: np.ndarray, v: np.ndarray, height: np.ndarray, latitudes: np.ndarray):
+    shear, deformation = wind_terms(u, v, height, latitudes)
     return 1e7 * shear * deformation, 1000 * shear
 
 
-def encode(fields: dict[tuple[str, str], np.ndarray]) -> bytes:
+def features(fields: dict[tuple[str, str], np.ndarray]) -> dict[str, np.ndarray]:
     def stack(name: str) -> np.ndarray:
         return np.stack([fields[name, f"{p} mb"] for p in LEVELS])
 
     height = stack("HGT")
-    ti1, shear = diagnostics(stack("UGRD"), stack("VGRD"), height, LATS)
+    shear, deformation = wind_terms(stack("UGRD"), stack("VGRD"), height, LATS)
     valid = np.isfinite(stack("TMP")) & np.isfinite(height)
-    planes = [fields["CAPE", "surface"], fields["HGT", "surface"]]
+    return {
+        "height": height[:, 1:-1:4, 1:-1:4],
+        "shear": np.where(valid, shear, np.nan)[:, 1:-1:4, 1:-1:4],
+        "deformation": deformation[:, 1:-1:4, 1:-1:4],
+        "cape": fields["CAPE", "surface"][1:-1:4, 1:-1:4],
+        "terrain": fields["HGT", "surface"][1:-1:4, 1:-1:4],
+    }
+
+
+def encode_features(data) -> bytes:
+    # Both live and replay use the same physical index and quantization.
+    shear = data["shear"]
+    ti1 = 1e7 * shear * data["deformation"]
+    planes = [data["cape"], data["terrain"]]
     for k in range(len(LEVELS)):
-        planes.extend(
-            [
-                height[k],
-                np.where(valid[k], ti1[k] * 100, np.nan),
-                np.where(valid[k], shear[k] * 100, np.nan),
-            ]
-        )
-    # Remove the halo and sample the scored grid at 1° for serving.
-    cube = np.stack(planes)[:, 1:-1:4, 1:-1:4]
+        planes.extend([data["height"][k], ti1[k] * 100, (1000 * shear[k]) * 100])
+    cube = np.stack(planes)
     encoded = np.where(np.isfinite(cube), np.clip(np.rint(cube), -32767, 32767), MISSING)
     return gzip.compress(encoded.astype("<i2").tobytes(), compresslevel=6, mtime=0)
+
+
+def encode(fields: dict[tuple[str, str], np.ndarray]) -> bytes:
+    return encode_features(features(fields))

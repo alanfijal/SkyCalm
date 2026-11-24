@@ -52,6 +52,15 @@ def main() -> None:
             stage / "services/observations",
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
         )
+        shutil.copytree(
+            ROOT / "services/pipeline",
+            stage / "services/pipeline",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "operator*", "panel"),
+        )
+        grid = stage / "grid"
+        grid.mkdir()
+        for name in ("__init__.py", "source.py"):
+            shutil.copy(ROOT / "grid" / name, grid / name)
         shutil.copytree(ROOT / "services/forecast/data", pkg / "data")
         temporary = args.output.with_suffix(".tmp")
         with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:

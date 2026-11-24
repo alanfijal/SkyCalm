@@ -13,10 +13,18 @@ export default defineConfig({
       args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
     },
   },
-  webServer: {
-    command: "python3 -B -m services.forecast.local --port 4187",
-    cwd: "..",
-    url: baseURL + "/api/runs",
-    timeout: 15_000,
-  },
+  webServer: [
+    {
+      command: "python3 -B -m services.forecast.local --port 4187",
+      cwd: "..",
+      url: baseURL + "/api/runs",
+      timeout: 15_000,
+    },
+    {
+      command: "python3 -B -m services.pipeline.operator --port 4188",
+      cwd: "..",
+      url: "http://127.0.0.1:4188/demo",
+      timeout: 15_000,
+    },
+  ],
 });
