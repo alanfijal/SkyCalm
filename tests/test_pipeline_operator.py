@@ -1,5 +1,6 @@
 import http.client
 import json
+import subprocess
 import threading
 import time
 from http.server import ThreadingHTTPServer
@@ -8,7 +9,7 @@ import pytest
 
 from services.pipeline.contract import REPLAYS
 from services.pipeline.operator import handler_for
-from services.pipeline.operator_backend import CloudOperator, LocalOperator
+from services.pipeline.operator_backend import AwsError, CloudOperator, LocalOperator
 
 
 @pytest.fixture
@@ -87,3 +88,15 @@ def test_cloud_panel_checks_account_before_any_actions(monkeypatch):
     )
     with pytest.raises(ValueError, match="identity"):
         CloudOperator("222222222222", "demo")
+
+
+def test_cloud_panel_reads_an_absent_lease_from_the_cli(monkeypatch):
+    def run(command, **kwargs):
+        output = '{"Account":"111111111111","Arn":"presenter"}' if command[1] == "sts" else ""
+        return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    operator = CloudOperator("111111111111", "demo")
+    assert operator.item("skycalm-dev-pipeline", "active") == {}
+    with pytest.raises(AwsError, match="unreadable"):
+        operator.aws("cloudwatch", "describe-alarms")
