@@ -47,6 +47,11 @@ def main() -> None:
         for source in (ROOT / "services/forecast").glob("*.py"):
             if source.name != "local.py":
                 shutil.copy(source, pkg)
+        shutil.copytree(
+            ROOT / "services/observations",
+            stage / "services/observations",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
         shutil.copytree(ROOT / "services/forecast/data", pkg / "data")
         temporary = args.output.with_suffix(".tmp")
         with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:

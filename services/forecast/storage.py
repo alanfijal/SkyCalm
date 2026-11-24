@@ -67,6 +67,11 @@ class LocalStore:
         except FileNotFoundError:
             return None
 
+    def observation_snapshot(self, selection: str) -> dict | None:
+        from services.observations.archive import local_latest, replay
+
+        return local_latest(self.root) if selection == "latest" else replay(selection)
+
     def replays(self) -> list[str]:
         if not self.replay_root:
             return []
