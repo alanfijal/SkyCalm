@@ -6,3 +6,13 @@
 !services/__init__.py
 !services/forecast
 !services/forecast/*.py
+!services/forecast/data/
+!services/forecast/data/replay/
+!services/forecast/data/replay/*/
+!services/forecast/data/replay/*/manifest.json
+!services/pipeline/
+!services/pipeline/contract.py
+!services/pipeline/artifacts.py
+!services/pipeline/__init__.py
+!grid/replay/
+!grid/replay/**

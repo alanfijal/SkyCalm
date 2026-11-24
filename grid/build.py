@@ -59,6 +59,7 @@ def main() -> None:
     parser.add_argument("--run", default="latest", help="latest or gfs-YYYYMMDD-HH")
     parser.add_argument("--directory", type=Path, default=Path(".local/weather"))
     parser.add_argument("--aws", action="store_true", help="Publish to configured AWS resources")
+    parser.add_argument("--job", help="Validated live or replay execution ID")
     args = parser.parse_args()
     # The essential Fargate container exits at the deadline, including during retries.
     signal.alarm(600)
@@ -71,7 +72,18 @@ def main() -> None:
     started = time.monotonic()
     try:
         run_id = source.latest() if args.run == "latest" else args.run
-        result = build(run_id, store)
+        if args.job:
+            from grid.replay import rebuild
+            from services.pipeline.artifacts import StagedGrid
+            from services.pipeline.contract import job_spec
+
+            if not args.aws:
+                parser.error("--job requires --aws")
+            mode = "replay" if args.job.startswith("replay-") else "live"
+            store = StagedGrid(store, job_spec(run_id, args.job, mode))
+            result = rebuild(run_id, store) if mode == "replay" else build(run_id, store)
+        else:
+            result = build(run_id, store)
     except (ValueError, NotReady, SourceError, OSError) as exc:
         parser.exit(1, f"Grid build failed: {exc}\n")
     finally:

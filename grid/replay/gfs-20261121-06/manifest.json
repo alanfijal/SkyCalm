@@ -1,0 +1,71 @@
+{
+  "runId": "gfs-20261121-06",
+  "scorer": "ti1-cape-v1",
+  "leads": [
+    {
+      "lead": 0,
+      "featuresSha256": "93f19c874bc2073fa1ceab9de579d975f474333e0795ff935d9f28fab9879fd5",
+      "gridSha256": "8e14cb9ec390721cea2b2a278aeee128e53221057cd802f10298641b53b2fd87"
+    },
+    {
+      "lead": 3,
+      "featuresSha256": "ba35854b2315bd0b579f106d324cedbfa9b3fa0ff061f812d750423bb2e7f096",
+      "gridSha256": "47bd034400534e6b26c4a839afd1f299bb5e33fd67322c968025266f8a0f913b"
+    },
+    {
+      "lead": 6,
+      "featuresSha256": "072e43008bf5af635dbf0e8a0e8cbfcb0b7c03c6dfda6be947224105a2385339",
+      "gridSha256": "72bc4c743270912978c10aaaf1cfa4476c20ed1dffc3c1b19999d60b39927ce6"
+    },
+    {
+      "lead": 9,
+      "featuresSha256": "2790ae87ec4a1206e0a38f7dcaea1c615a0daacd015a68235cda95722525eb61",
+      "gridSha256": "fe292896606ae8b71078aa46dc3fdcd08352892f8473d0ffa3a6a9723a7faecb"
+    },
+    {
+      "lead": 12,
+      "featuresSha256": "4a878420df04e1463c57f0dcd3a741ccaaa087d384228fede89c3761a2bbe036",
+      "gridSha256": "3e715ef695ef48100046b1a6b628e4d4e9b7aba4790dffa21e3ced3ad714d385"
+    },
+    {
+      "lead": 15,
+      "featuresSha256": "4058b9d63c4ab25e04d839ba71b3d7e25568532cde7b5bc61e96c55d833b5a5e",
+      "gridSha256": "ab3b630b88c5f07ba89b56a33493fa635f28de657cb5403465f7c02b5643a61d"
+    },
+    {
+      "lead": 18,
+      "featuresSha256": "714f9314a3fe6c33aeaf69bd6decde3fe1bced7076a42153949759703a7b41bd",
+      "gridSha256": "f638026baa95a3b8e3899941dc82dba38fa275c1e3aff11f62a95a77e961f9c0"
+    },
+    {
+      "lead": 21,
+      "featuresSha256": "7bc5a302e3234dbce103051cfaf1d7a61efaa22867c879d72cfade8cbc12755e",
+      "gridSha256": "29173f1f3312f0e28f9216ebfc7648b8602b98fe265feda2a591d4f7fb16db2e"
+    },
+    {
+      "lead": 24,
+      "featuresSha256": "5e6492e97686d2dfdf992cee542a8821b750a3be4b812d399b245ea814294e97",
+      "gridSha256": "30b5e313c718d6433bb33209a6c337102499e3d9072607ab40c2e5a9843f37dd"
+    },
+    {
+      "lead": 27,
+      "featuresSha256": "0eaa2c51cad453ed77ad32d1c4040e83ee212ca2f818f4732c96bf42c9da7906",
+      "gridSha256": "6120eb6033b450fbde5d792347f7873f9ba8f9647cdbb372af49ecc279282a87"
+    },
+    {
+      "lead": 30,
+      "featuresSha256": "9669680af940a37dd79b0f8f701403f01bdb1ebed9e7163590f4be7db37f9899",
+      "gridSha256": "bcc462ddbb977d8dcd65ef375db6ad22740814fe7d07e5d361e4b0e277fdc169"
+    },
+    {
+      "lead": 33,
+      "featuresSha256": "ca23de34475c54a48d42f9e7e7492c3c1f93e93b3eca88771e6eb8f7068659d3",
+      "gridSha256": "98bd42aa13a9a8a3ef843529b4ec6995bf1da9dc0187ceb2aa7cad5911c7df3f"
+    },
+    {
+      "lead": 36,
+      "featuresSha256": "85e34902f51f9ade6e258aac85ce91c7065a867fadb772f3664f91439495440b",
+      "gridSha256": "f9abceded85cb212548a6b12ea3bd7abfbe12733831f4b1367d4af412af02465"
+    }
+  ]
+}
