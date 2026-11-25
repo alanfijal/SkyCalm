@@ -7,6 +7,7 @@ import pytest
 from moto import mock_aws
 
 from services.forecast import handler
+from services.forecast.api import respond
 from services.forecast.aws import AwsStore
 from services.forecast.schema import SCORER
 from services.forecast.storage import REPLAY_ROOT
@@ -55,3 +56,22 @@ def test_cloud_publication_and_http_api_replay(monkeypatch):
     }
     result = handler.handler(event, SimpleNamespace(aws_request_id="local-test"))
     assert result["statusCode"] == 200 and json.loads(result["body"])["peak"] == "moderate"
+
+    model_run = "gfs-20261125-18"
+    for file in (REPLAY_ROOT / model_run).iterdir():
+        s3.put_object(
+            Bucket=bucket, Key=f"archive/{SCORER}/{model_run}/{file.name}", Body=file.read_bytes()
+        )
+    route = respond(
+        "/api/forecast",
+        {
+            "origin": "EDI",
+            "destination": "OPO",
+            "departure": "2026-11-26T02:15:00Z",
+            "run": model_run,
+        },
+        store,
+    )
+    assert route["mode"] == "replay" and route["modelVersion"] == 1 and store.latest() == pin
+    assert sum(p["method"] == "lightgbm" for p in route["samples"]) == 59
+    assert len(route["samples"]) == 69

@@ -68,6 +68,8 @@ def archive():
     store = LocalStore(REPLAY_ROOT, REPLAY_ROOT)
     for run in sorted(store.replays()):
         observations = replay(run)
+        if observations is None:
+            continue
         for origin, destination in ROUTES:
             query = demonstration_route(run) | {"origin": origin, "destination": destination}
             route = respond("/api/forecast", query, store)
