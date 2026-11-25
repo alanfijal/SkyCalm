@@ -33,7 +33,8 @@ resource "aws_iam_role_policy" "pipeline" {
     { Effect = "Allow", Action = ["sagemaker:CreateProcessingJob", "sagemaker:DescribeProcessingJob", "sagemaker:StopProcessingJob",
     "sagemaker:CreateTrainingJob", "sagemaker:DescribeTrainingJob", "sagemaker:StopTrainingJob", "sagemaker:AddTags", "sagemaker:ListTags"], Resource = local.jobs },
     { Effect = "Allow", Action = ["sagemaker:CreateModelPackage", "sagemaker:DescribeModelPackage", "sagemaker:AddTags"], Resource = [local.group_arn, local.model_arn] },
-    { Effect = "Allow", Action = ["sagemaker:DescribeModelPackageGroup"], Resource = local.group_arn },
+    # RegisterModel calls CreateModelPackageGroup even when Terraform already created the group.
+    { Effect = "Allow", Action = ["sagemaker:CreateModelPackageGroup", "sagemaker:DescribeModelPackageGroup"], Resource = local.group_arn },
     { Effect = "Allow", Action = "iam:PassRole", Resource = aws_iam_role.sagemaker.arn, Condition = { StringEquals = { "iam:PassedToService" = "sagemaker.amazonaws.com" } } },
     { Effect = "Allow", Action = ["s3:GetObject"], Resource = "${local.storage}/ml/runs/*" },
     { Effect = "Allow", Action = ["s3:GetBucketLocation"], Resource = local.storage },
