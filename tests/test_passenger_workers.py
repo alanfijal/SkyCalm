@@ -48,6 +48,43 @@ def test_demo_seed_respects_personal_routes_and_replayed_events(store, monkeypat
         )
 
 
+def test_real_archived_grid_reaches_only_classroom_inboxes(store, tmp_path):
+    from services.forecast.storage import REPLAY_ROOT, LocalStore
+    from services.pipeline.contract import READY, job_spec
+
+    req = {"action": "seed", "requestId": str(uuid4())}
+    api.dispatch(
+        http("/api/admin/actions", "POST", req, scope=api.ADMIN, groups="[admins]"), store, now=NOW
+    )
+    save(store, OTHER)
+    job = job_spec("gfs-20261124-12", "replay-" + uuid4().hex, "replay")
+    tasks = []
+    with patch.object(
+        worker, "enqueue", side_effect=lambda kind, detail: tasks.append((kind, detail))
+    ):
+        worker.process(store, READY, job, T, 1)
+    assert len(tasks) == 3 and all(t[1]["owner"] == OWNER for t in tasks)
+    with (
+        patch.object(worker.runtime, "weather"),
+        patch.object(worker, "StagedGrid", return_value=LocalStore(tmp_path, REPLAY_ROOT)),
+    ):
+        for kind, data in tasks:
+            worker.process(store, kind, data, T, 1)
+            worker.process(store, kind, data, T, 2)
+    alerts = api.view(store, OWNER, T)["inbox"]
+    assert any(n["slot"] == 1 and n["kind"] == "test-change" for n in alerts)
+    assert not api.view(store, OTHER, T)["inbox"]
+    api.dispatch(
+        http("/api/admin/actions", "POST", req, scope=api.ADMIN, groups="[admins]"), store, now=NOW
+    )
+    assert len(api.view(store, OWNER, T)["inbox"]) == len(alerts)
+    req["requestId"] = str(uuid4())
+    api.dispatch(
+        http("/api/admin/actions", "POST", req, scope=api.ADMIN, groups="[admins]"), store, now=NOW
+    )
+    assert not api.view(store, OWNER, T)["inbox"]
+
+
 def test_push_falls_back_to_opted_in_email_and_duplicate_is_skipped(store, monkeypatch):
     import io
 

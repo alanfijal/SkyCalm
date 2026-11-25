@@ -57,6 +57,12 @@ The collector reads the Aviation Weather Center on the server. A capped query ca
 
 Terraform defines an on-demand weather collector, a Glue table with daily partitions, and an Athena workgroup with a 10 MiB scan limit. The optional half-hourly schedule takes an explicit UTC window of up to two hours. Raw snapshots expire after seven days, working history after 30 days and query results after one day. The curated dates stay in the archive. Use the `skycalm-dev-weather` workgroup in Stockholm for [monthly report counts](analytics/monthly_reports.sql) and [dated advisories](analytics/advisories.sql).
 
+## Passenger accounts
+
+With passenger services enabled, open **My flights** or choose **Save route** on a forecast. Sign in with the invited classroom email or Google, confirm a future UTC departure and choose **Save flight**. The **Account** tab manages browser alerts, email fallback, JSON export and deletion. On iPhone, add SkyCalm to the Home Screen and open it there before enabling push. The public forecast and archived weather remain available to visitors.
+
+Each passenger can save eight flights. Live grid events reassess departures within 36 hours. A change in peak category or a shift of more than 30 minutes in the first moderate-or-severe section can trigger an alert, with three hours between change alerts per flight. Future 24-hour and 3-hour reminders expire after execution. The authenticated `/demo` page seeds three classroom routes, publishes an archived run and tests delivery. `/health` shows queue counts and the last push accepted for the operator. Both pages require the admin group and scope.
+
 ## Run a forecast from the operator panel
 
 From the repository root, use a Python 3.12 virtual environment and start the private panel.
@@ -91,6 +97,8 @@ python -m ruff format --check grid services scripts tests
 python -m ruff check grid services scripts tests
 python -m pytest -q
 python scripts/package_lambda.py
+(cd services/delivery && npm ci --omit=dev --ignore-scripts && npm test)
+python scripts/package_push.py
 (cd web && npm ci && npm run lint && npm test && npm run build)
 (cd web && npx playwright install --only-shell chromium && npm run test:layout)
 terraform fmt -check -recursive infra

@@ -163,6 +163,7 @@ class PassengerStore:
             created=now,
             expiresAt=int(flight.get("expiresAt", now + 7 * 86400)),
             delivery="pending",
+            demo=flight.get("watch") == "demo" or kind.startswith("test-"),
         )
         writes = []
         if sk.startswith("flight#"):

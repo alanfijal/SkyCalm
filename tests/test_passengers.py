@@ -30,6 +30,21 @@ def store():
             AttributeDefinitions=[
                 {"AttributeName": "pk", "AttributeType": "S"},
                 {"AttributeName": "sk", "AttributeType": "S"},
+                {"AttributeName": "watch", "AttributeType": "S"},
+                {"AttributeName": "departureEpoch", "AttributeType": "N"},
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    "IndexName": "departures",
+                    "KeySchema": [
+                        {"AttributeName": "watch", "KeyType": "HASH"},
+                        {"AttributeName": "departureEpoch", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["slot", "revision"],
+                    },
+                }
             ],
             BillingMode="PAY_PER_REQUEST",
         )

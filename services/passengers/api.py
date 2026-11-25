@@ -132,14 +132,23 @@ def admin_action(path, method, body, owner, store, now, clients):
     )
     epoch = int(now.timestamp())
     if action == "seed":
+        already_seeded = True
         for slot in range(1, len(SEEDS) + 1):
             old = store.get(owner, f"flight#{slot}")
+            already_seeded = already_seeded and old.get("revision") == str(
+                uuid5(UUID(req), str(slot))
+            )
             if old.get("watch") != "demo" and old.get("expiresAt", 0) > epoch:
                 raise RequestError(
                     "occupied",
                     "Move your personal flights out of slots 1–3 before resetting demo flights.",
                     409,
                 )
+        if already_seeded:
+            return {"seeded": len(SEEDS)}
+        for row in store.rows(owner, epoch):
+            if row["sk"].startswith("notice#") and row.get("demo"):
+                store.db.delete_item(**store.key(owner, row["sk"]))
         for slot, (origin, dest, hours) in enumerate(SEEDS, 1):
             rev = str(uuid5(UUID(req), str(slot)))
             old = store.get(owner, f"flight#{slot}")
