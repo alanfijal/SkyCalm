@@ -30,7 +30,12 @@ def make_handler(store: LocalStore, public: Path):
                 result = response("GET", request.path, request.query, store, uuid.uuid4().hex)
                 self.send(result["statusCode"], result["headers"], result["body"].encode())
                 return
-            local = (public / (unquote(request.path).lstrip("/") or "index.html")).resolve()
+            asset = (
+                "index.html"
+                if request.path in ("/", "/flights", "/demo", "/health")
+                else unquote(request.path).lstrip("/")
+            )
+            local = (public / asset).resolve()
             if not local.is_relative_to(public) or not local.is_file():
                 self.send(404, {"Content-Type": "text/plain"}, b"Page unavailable.")
                 return

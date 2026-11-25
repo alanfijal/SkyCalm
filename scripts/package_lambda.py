@@ -69,6 +69,11 @@ def main() -> None:
             stage / "services/pipeline",
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "operator*", "panel"),
         )
+        shutil.copytree(
+            ROOT / "services/passengers",
+            stage / "services/passengers",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
         grid = stage / "grid"
         grid.mkdir()
         for name in ("__init__.py", "source.py"):

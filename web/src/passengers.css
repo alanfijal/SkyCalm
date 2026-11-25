@@ -1,0 +1,161 @@
+.passenger-page {
+  min-height: 100svh;
+  color: var(--text);
+  background: var(--bg);
+}
+.pass-nav {
+  height: 4.5rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.passenger-page a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.pass-nav a,
+.pass-actions,
+.pass-row,
+.pass-route,
+.pass-route h3,
+.pass-notice,
+.pass-route p {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.pass-nav .brand {
+  color: var(--text);
+}
+.pass-shell {
+  width: min(50rem, 100%);
+  padding: clamp(1rem, 4vw, 3rem) var(--gutter);
+  margin: auto;
+  overflow-wrap: anywhere;
+}
+.pass-shell h1 {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+  margin: 0 0 1.5rem;
+}
+.pass-shell h2,
+.pass-shell h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+.pass-shell h3 {
+  font-size: 1.05rem;
+}
+.pass-shell p,
+.pass-shell small {
+  color: var(--text-secondary);
+  margin: 0.55rem 0;
+  line-height: 1.5;
+}
+.pass-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+.pass-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 0.9rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  margin: 1rem 0;
+}
+.pass-shell button,
+.pass-shell input,
+.pass-shell select {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.55rem;
+  min-height: 2.65rem;
+  font: inherit;
+}
+.pass-shell button {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.pass-shell .pass-primary,
+.pass-tabs [aria-current] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pass-shell button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pass-row,
+.pass-route {
+  justify-content: space-between;
+}
+.pass-row + .pass-row {
+  margin-top: 0.65rem;
+}
+.pass-actions,
+.pass-fields {
+  flex-wrap: wrap;
+}
+.pass-fields {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: 1fr 1fr 2fr;
+}
+.pass-shell label {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.pass-shell input,
+.pass-shell select {
+  width: 100%;
+  min-width: 0;
+}
+.pass-shell .pass-error {
+  color: var(--turb-moderate);
+}
+.pass-notice {
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.pass-notice:last-child {
+  border: 0;
+}
+.pass-notice p {
+  font-size: 0.875rem;
+}
+.passenger-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text);
+  text-decoration: none;
+}
+@media (max-width: 640px) {
+  .pass-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pass-fields label:last-child {
+    grid-column: 1/-1;
+  }
+  .pass-route {
+    align-items: flex-start;
+  }
+  .passenger-link span {
+    display: none;
+  }
+}

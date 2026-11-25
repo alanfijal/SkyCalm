@@ -141,6 +141,25 @@ h2 {
   background: var(--accent);
   border-radius: 0.58rem;
 }
+.save-route-link {
+  color: var(--accent);
+  margin-inline-start: auto;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.passenger-link {
+  text-decoration: none;
+}
+@media (max-width: 640px) {
+  .nav-actions .passenger-link {
+    padding: 0;
+    inline-size: 2.5rem;
+    flex-shrink: 0;
+  }
+  .nav-actions .passenger-link > span {
+    display: none;
+  }
+}
 .nav-actions {
   display: flex;
   align-items: center;
@@ -913,10 +932,9 @@ h2 {
 }
 @media (max-width: 43rem) {
   .planner-heading {
-    grid-template: "title edit" auto "summary summary" auto / minmax(
-        0,
-        1fr
-      ) auto;
+    grid-template:
+      "title edit" auto "summary summary" auto / minmax(0, 1fr)
+      auto;
     gap: 0.15rem 0.65rem;
   }
   .nav-inner {
@@ -968,6 +986,15 @@ h2 {
     padding-block-start: 0.75rem;
     border-inline-start: 0;
     border-block-start: 1px solid var(--border);
+  }
+}
+@media (max-width: 22rem) {
+  .nav-actions .guide-button > span {
+    display: none;
+  }
+  .nav-actions .guide-button {
+    inline-size: 2.5rem;
+    padding-inline: 0;
   }
 }
 @media (max-width: 27rem) {

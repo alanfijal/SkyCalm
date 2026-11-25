@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import AirportField from "./AirportField";
 import Guide from "./Guide";
+import { keepRoute } from "./flightDraft";
 import Timeline from "./Timeline";
 import WeatherLayers from "./WeatherLayers";
 import { nearby, type LayerChoice } from "./observations";
@@ -203,6 +204,14 @@ export default function App() {
             <span>SkyCalm</span>
           </a>
           <div className="nav-actions">
+            <a
+              href="/flights"
+              className="guide-button passenger-link"
+              aria-label="My flights"
+            >
+              <Plane size={16} />
+              <span>My flights</span>
+            </a>
             <Guide />
             <button
               className="theme-toggle"
@@ -393,6 +402,15 @@ export default function App() {
                   {source && source !== "latest" ? " · Replay" : ""}
                 </span>
               </div>
+              {forecast && (
+                <a
+                  className="save-route-link"
+                  href="/flights"
+                  onClick={() => keepRoute(forecast)}
+                >
+                  Save route
+                </a>
+              )}
             </div>
           </section>
           <section className="map-card card" aria-label="Flight map">

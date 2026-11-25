@@ -3,7 +3,8 @@ resource "aws_apigatewayv2_api" "forecast" {
   protocol_type = "HTTP"
   cors_configuration {
     allow_origins = ["https://${aws_cloudfront_distribution.web.domain_name}"]
-    allow_methods = ["GET"]
+    allow_methods = ["GET", "POST", "PUT", "DELETE"]
+    allow_headers = ["authorization", "content-type"]
     max_age       = 3600
   }
 }
