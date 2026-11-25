@@ -3,15 +3,15 @@ resource "aws_cloudwatch_log_group" "forecast" {
   retention_in_days = 7
 }
 resource "aws_lambda_function" "forecast" {
-  function_name    = "${local.name}-forecast"
-  role             = aws_iam_role.forecast.arn
-  runtime          = "python3.12"
-  architectures    = ["arm64"]
-  handler          = "services.forecast.handler.handler"
-  memory_size      = 512
-  timeout          = 15
-  filename         = var.lambda_zip
-  source_code_hash = try(filebase64sha256(var.lambda_zip), null)
+  function_name = "${local.name}-forecast-img"
+  role          = aws_iam_role.forecast.arn
+  package_type  = "Image"
+  image_uri     = local.lambda_images.python
+  image_config { command = ["services.forecast.handler.handler"] }
+  lifecycle { create_before_destroy = true }
+  architectures = ["arm64"]
+  memory_size   = 512
+  timeout       = 15
   environment {
     variables = {
       SKYCALM_BUCKET = aws_s3_bucket.app["weather"].id
@@ -23,11 +23,5 @@ resource "aws_lambda_function" "forecast" {
     application_log_level = "INFO"
     system_log_level      = "WARN"
     log_group             = aws_cloudwatch_log_group.forecast.name
-  }
-  lifecycle {
-    precondition {
-      condition     = fileexists(var.lambda_zip)
-      error_message = "Build the Lambda zip with python scripts/package_lambda.py first."
-    }
   }
 }

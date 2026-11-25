@@ -11,15 +11,15 @@ resource "aws_iam_role_policy" "passenger_admission" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.passenger_admission.arn}:*" }] })
 }
 resource "aws_lambda_function" "passenger_admission" {
-  function_name    = "${local.passenger_name}-admission"
-  role             = aws_iam_role.passenger_admission.arn
-  handler          = "services.passengers.admission.handler"
-  runtime          = "python3.12"
-  architectures    = ["arm64"]
-  memory_size      = 128
-  timeout          = 3
-  filename         = var.lambda_zip
-  source_code_hash = try(filebase64sha256(var.lambda_zip), null)
+  function_name = "${local.passenger_name}-admission-img"
+  role          = aws_iam_role.passenger_admission.arn
+  package_type  = "Image"
+  image_uri     = local.lambda_images.python
+  image_config { command = ["services.passengers.admission.handler"] }
+  lifecycle { create_before_destroy = true }
+  architectures = ["arm64"]
+  memory_size   = 128
+  timeout       = 3
   environment { variables = { CLASSROOM_EMAIL = local.passenger_login_email } }
   logging_config {
     log_format            = "JSON"
@@ -29,6 +29,7 @@ resource "aws_lambda_function" "passenger_admission" {
   }
 }
 resource "aws_lambda_permission" "passenger_admission" {
+  lifecycle { create_before_destroy = true }
   statement_id   = "ClassroomSignup"
   action         = "lambda:InvokeFunction"
   function_name  = aws_lambda_function.passenger_admission.function_name

@@ -26,6 +26,7 @@ resource "aws_scheduler_schedule" "discovery" {
   }
 }
 resource "aws_lambda_function_event_invoke_config" "discovery" {
+  lifecycle { create_before_destroy = true }
   function_name                = aws_lambda_function.run["discover"].function_name
   maximum_event_age_in_seconds = 120
   maximum_retry_attempts       = 0

@@ -98,9 +98,9 @@ python -m pip install --require-hashes -r requirements-dev.txt
 python -m ruff format --check grid services scripts tests
 python -m ruff check grid services scripts tests
 python -m pytest -q
-python scripts/package_lambda.py
+bash scripts/lambda_images.sh build
 (cd services/delivery && npm ci --omit=dev --ignore-scripts && npm test)
-python scripts/package_push.py
+python3 scripts/check_lambda_images.py
 (cd web && npm ci && npm run lint && npm test && npm run build)
 (cd web && npx playwright install --only-shell chromium && npm run test:layout)
 terraform fmt -check -recursive infra
@@ -111,8 +111,8 @@ for directory in infra/bootstrap infra/environments/dev; do
 done
 ```
 
-These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. The Lambda ZIP normalizes entry dates and uses hash-locked wheels. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
+These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. Eleven ARM64 functions use the Python target in `services/Dockerfile`. The Web Push sender uses its Node target. The local check invokes both through the AWS runtime emulator with outbound networking disabled. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
 
-**Deployment status.** The public site serves forecasts, archived replays and Aviation Weather Center observations from Stockholm. In the first Phase 3 cloud rehearsal, a click on **Publish replay** rebuilt all 13 forecast steps and updated the 69-point Edinburgh–Porto route in 62.4 seconds. Scheduled discovery is off. Use **Check NOAA for a new run** to admit a new cycle. An on-demand invocation of `skycalm-dev-observations` with an empty JSON object refreshes the observations. When the current forecast exceeds its 36-hour window, the passenger app opens a dated replay.
+**Deployment status.** The public site serves forecasts, archived replays and Aviation Weather Center observations from Stockholm. In the first Phase 3 cloud rehearsal, a click on **Publish replay** rebuilt all 13 forecast steps and updated the 69-point Edinburgh–Porto route in 62.4 seconds. Scheduled discovery is off. Use **Check NOAA for a new run** to admit a new cycle. An on-demand invocation of the observations Lambda (its name is available from the dev `observations_function` output) with an empty JSON object refreshes the observations. When the current forecast exceeds its 36-hour window, the passenger app opens a dated replay.
 
-For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and ECR repository, keep an encrypted backup of bootstrap state, and pin the ECR image digest in the dev plan. The dev backend uses S3 native locking. To request a specific complete NOAA cycle, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH`. It submits the same admission event as discovery and prints the Step Functions execution ARN. Repeating a cycle uses the same execution name. The planning model runs with `python3 scripts/estimate_cost.py`.
+For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and private ECR repositories, and keep an encrypted backup of bootstrap state. From a clean release commit, build and check both Lambda images, then run `bash scripts/lambda_images.sh publish` using the approved AWS profile. Pass `-var-file="$PWD/build/lambda-images.tfvars.json"` to the dev plan and pin the separate grid image with `TF_VAR_image_digest`. The dev backend uses S3 native locking. To request a specific complete NOAA cycle, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH`. It submits the same admission event as discovery and prints the Step Functions execution ARN. Repeating a cycle uses the same execution name. The planning model runs with `python3 scripts/estimate_cost.py`.

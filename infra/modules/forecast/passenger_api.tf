@@ -32,6 +32,7 @@ resource "aws_apigatewayv2_route" "passengers" {
   authorization_scopes = ["skycalm/${each.value}"]
 }
 resource "aws_lambda_permission" "passengers" {
+  lifecycle { create_before_destroy = true }
   for_each      = local.private_routes
   statement_id  = "AllowRoute-${substr(sha256(each.key), 0, 16)}"
   action        = "lambda:InvokeFunction"

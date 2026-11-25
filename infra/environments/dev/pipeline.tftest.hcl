@@ -1,10 +1,11 @@
 mock_provider "aws" {}
 
 variables {
-  name               = "skycalm-dev"
-  account_id         = "123456789012"
-  region             = "eu-north-1"
-  lambda_zip         = "../../../build/forecast.zip"
+  python_image = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/skycalm/functions@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  name         = "skycalm-dev"
+  account_id   = "123456789012"
+  region       = "eu-north-1"
+
   weather_bucket     = "classroom-weather"
   runs_table         = "classroom-runs"
   task_arn           = "arn:aws:ecs:eu-north-1:123456789012:task-definition/grid:2"
@@ -18,6 +19,10 @@ variables {
 run "pipeline_controls" {
   command = plan
   module { source = "../../modules/pipeline" }
+  assert {
+    condition     = alltrue([for f in values(aws_lambda_function.run) : f.package_type == "Image" && f.image_uri == var.python_image && one(f.architectures) == "arm64" && length(one(f.image_config).command) == 1])
+    error_message = "All five pipeline consumers must select a handler from the pinned Python image."
+  }
   assert {
     condition     = length(aws_sqs_queue.work) == 3 && length(aws_sqs_queue.dead) == 4 && length(aws_cloudwatch_event_target.queue) == 4 && length(aws_lambda_event_source_mapping.consumer) == 3
     error_message = "Admission, route processing and audit require isolated delivery paths."

@@ -3,7 +3,7 @@ module "pipeline" {
   name               = local.name
   region             = local.region
   account_id         = var.account_id
-  lambda_zip         = var.lambda_zip
+  python_image       = local.lambda_images.python
   weather_bucket     = aws_s3_bucket.app["weather"].id
   runs_table         = aws_dynamodb_table.runs.name
   task_arn           = aws_ecs_task_definition.grid.arn
