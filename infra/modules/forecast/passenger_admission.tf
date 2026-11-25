@@ -20,7 +20,7 @@ resource "aws_lambda_function" "passenger_admission" {
   timeout          = 3
   filename         = var.lambda_zip
   source_code_hash = try(filebase64sha256(var.lambda_zip), null)
-  environment { variables = { CLASSROOM_EMAIL = var.passenger_settings.classroom_email } }
+  environment { variables = { CLASSROOM_EMAIL = local.passenger_login_email } }
   logging_config {
     log_format            = "JSON"
     application_log_level = "INFO"
