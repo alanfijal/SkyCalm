@@ -25,6 +25,9 @@ SkyCalm_build_prompt.md
 *.pem
 *.key
 *.p12
+client_secret*.json
+google-oauth.json
+vapid*.json
 *.tfvars
 *.tfvars.json
 *.tfbackend
