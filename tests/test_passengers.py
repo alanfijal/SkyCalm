@@ -167,6 +167,7 @@ def test_health_reads_the_version_from_the_published_grid(
         clients=Mock(),
     )
     assert result["modelVersion"] == expected
+    assert result["manifestAvailable"] is (manifest is not None)
     assert result["observationsAsOf"] == "2026-11-25T06:00:00Z"
     if latest:
         weather.published_manifest.assert_called_once_with(latest)

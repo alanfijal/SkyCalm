@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid5
 
+from botocore.exceptions import ClientError
+
 from services.forecast.api import RequestError
 from services.forecast.schema import SCORER, utc_text
 from services.passengers.domain import flight_input, identifier, identity, subscription
@@ -99,7 +101,14 @@ def admin_action(path, method, body, owner, store, now, clients):
         job = runtime.table().get_item(Key={"pk": "active"}, ConsistentRead=True).get("Item", {})
         weather = runtime.weather()
         last = weather.latest()
-        manifest = weather.published_manifest(last) if last else None
+        try:
+            manifest = weather.published_manifest(last) if last else None
+        except ClientError as exc:
+            # S3 can return 403 for an expired key when this role cannot list the bucket.
+            if exc.response["Error"]["Code"] not in {"403", "AccessDenied"}:
+                raise
+            log.info(json.dumps({"event": "health.manifest.unavailable", "runId": last}))
+            manifest = None
         observation = weather.table.get_item(
             Key={"pk": "observations#awc"}, ConsistentRead=True
         ).get("Item", {})
@@ -109,6 +118,7 @@ def admin_action(path, method, body, owner, store, now, clients):
             "active": job.get("jobId"),
             "latestRun": last,
             "model": SCORER,
+            "manifestAvailable": manifest is not None,
             "modelVersion": (manifest or {}).get("model", {}).get("version"),
             "observationsAsOf": observation.get("asOfTime"),
             "traffic": "Disabled pending permission",

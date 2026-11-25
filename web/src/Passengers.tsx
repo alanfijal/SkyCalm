@@ -573,6 +573,7 @@ function Operator({
   const [health, setHealth] = useState<{
     latestRun: string;
     model: string;
+    manifestAvailable?: boolean;
     modelVersion?: number | null;
     observationsAsOf?: string | null;
     traffic: string;
@@ -657,9 +658,11 @@ function Operator({
               Forecast method ·{" "}
               {health.modelVersion
                 ? `LightGBM v${health.modelVersion} with physics fallback`
-                : health.latestRun
+                : health.manifestAvailable
                   ? "Physics baseline"
-                  : "Awaiting first grid"}
+                  : health.latestRun
+                    ? "Grid details unavailable"
+                    : "Awaiting first grid"}
             </p>
             <p>
               Weather observations ·{" "}
