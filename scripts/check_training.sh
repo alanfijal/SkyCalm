@@ -15,7 +15,8 @@ tar -czf "$directory/model/model.tar.gz" -C "$directory/trained" model.txt model
   -v "$directory/model:/opt/ml/processing/model:ro" -v "$directory/metrics:/opt/ml/processing/metrics" "$image" evaluate
 if [[ -n "${CHECK_GRID_IMAGE:-}" ]]; then
   mkdir -p "$directory/preview"
-  "${runtime[@]}" -v "$PWD:/work:ro" -w /work -v "$directory/model/model.tar.gz:/model.tar.gz:ro" \
+  "${runtime[@]}" --user "$(id -u):$(id -g)" -v "$PWD:/work:ro" -w /work \
+    -v "$directory/model/model.tar.gz:/model.tar.gz:ro" \
     -v "$directory/preview:/preview" --entrypoint python "$CHECK_GRID_IMAGE" \
     -m scripts.check_model_pickup /model.tar.gz --preview-dir /preview
 fi
