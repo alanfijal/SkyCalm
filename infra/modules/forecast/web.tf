@@ -37,6 +37,10 @@ resource "aws_cloudfront_distribution" "web" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
     cache_policy_id        = aws_cloudfront_cache_policy.assets.id
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.passenger_pages.arn
+    }
   }
   restrictions {
     geo_restriction { restriction_type = "none" }
@@ -53,7 +57,7 @@ locals {
   mime_types = {
     html  = "text/html; charset=utf-8", css = "text/css", js = "text/javascript",
     json  = "application/json", geojson = "application/geo+json", svg = "image/svg+xml",
-    woff2 = "font/woff2", txt = "text/plain; charset=utf-8"
+    woff2 = "font/woff2", txt = "text/plain; charset=utf-8", png = "image/png", webmanifest = "application/manifest+json"
   }
   site_files = setsubtract(fileset(var.web_directory, "**"), ["config.json"])
 }
@@ -69,7 +73,7 @@ resource "aws_s3_object" "site" {
 resource "aws_s3_object" "runtime" {
   bucket        = aws_s3_bucket.app["web"].id
   key           = "config.json"
-  content       = jsonencode({ apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint })
+  content       = jsonencode({ apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint, auth = { domain = "https://${local.login_prefix}.auth.${local.region}.amazoncognito.com", issuer = "https://${aws_cognito_user_pool.passengers.endpoint}", clientId = aws_cognito_user_pool_client.passengers.id, vapidPublicKey = var.passenger_settings.vapid_public } })
   content_type  = "application/json"
   cache_control = "no-store"
 }
