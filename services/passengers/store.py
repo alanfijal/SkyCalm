@@ -1,6 +1,7 @@
 """Owner partitions. Transactions serialize account erasure, flight edits and inbox alerts."""
 
 import hashlib
+from uuid import UUID, uuid5
 
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from botocore.exceptions import ClientError
@@ -96,7 +97,7 @@ class PassengerStore:
             pk=owner,
             sk=key,
             slot=slot,
-            id=old.get("id", revision) if expected else revision,
+            id=old["id"] if expected and old else str(uuid5(UUID(owner), f"{slot}:{revision}")),
             revision=revision,
             watch="demo" if demo or (expected and old.get("watch") == "demo") else "live",
             **data,

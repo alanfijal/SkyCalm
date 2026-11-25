@@ -56,13 +56,19 @@ def view(store, owner, now):
     }
 
 
-def verified_email(event, clients):
+def identity_attributes(event, clients):
     bearer = event.get("headers", {}).get("authorization", "").split()
     if len(bearer) != 2 or bearer[0].lower() != "bearer":
         raise RequestError("unauthorized", "Please sign in again.", 401)
     user = clients("cognito-idp").get_user(AccessToken=bearer[1])
-    attrs = {a["Name"]: a["Value"] for a in user["UserAttributes"]}
+    return {a["Name"]: a["Value"] for a in user["UserAttributes"]}
+
+
+def verified_email(event, clients):
+    attrs = identity_attributes(event, clients)
     sandbox = os.environ.get("SES_RECIPIENT", "")
+    if not sandbox:
+        raise RequestError("email_unavailable", "Classroom email delivery is not configured.")
     if (
         attrs.get("email_verified") != "true"
         or not attrs.get("email")
@@ -203,6 +209,13 @@ def dispatch(event, store, clients=runtime.client, now=None):
     owner, username = identity(event, scope)
     account = store.get(owner, "account")
     erasing = method == "DELETE" and path == "/api/me"
+    if account.get("erasing") and method == "GET" and path == "/api/me":
+        return {
+            "closing": True,
+            "flights": [],
+            "inbox": [],
+            "preferences": {"push": False, "email": False},
+        }
     if account.get("erasing") and not erasing:
         raise RequestError("closed", "This account is closed.", 410)
     raw = event.get("body") or "{}"
@@ -223,6 +236,7 @@ def dispatch(event, store, clients=runtime.client, now=None):
         if path.endswith("export"):
             data.update(
                 subject=owner,
+                identity=identity_attributes(event, clients),
                 exportedAt=utc_text(now),
                 verifiedEmailForDelivery=account.get("prefs", {}).get("email"),
             )

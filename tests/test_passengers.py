@@ -223,7 +223,7 @@ def test_preferences_export_erasure_and_replay_guard(store, monkeypatch):
         NOW,
     )
     assert (
-        api.dispatch(http("/api/me/export"), store, now=NOW)["verifiedEmailForDelivery"]
+        api.dispatch(http("/api/me/export"), store, clients, NOW)["verifiedEmailForDelivery"]
         == "school@example.edu"
     )
     api.dispatch(

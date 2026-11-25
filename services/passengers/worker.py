@@ -27,7 +27,8 @@ def enqueue(kind, data):
 
 
 def schedule_name(row, hours):
-    return f"f-{row['revision']}-{hours}"
+    name = uuid5(NAMESPACE_URL, f"{row['pk']}/{row['sk']}/{row['revision']}")
+    return f"f-{name.hex}-{hours}"
 
 
 def schedules(old, current, scheduler, now, env):
