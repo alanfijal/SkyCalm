@@ -59,3 +59,25 @@ def test_briefing_rejects_invented_details_and_keys_each_forecast():
     assert cache_key("run", "EDI", "OPO", "12Z", choices) != cache_key(
         "run", "EDI", "OPO", "14Z", choices
     )
+
+
+def test_sagemaker_tar_accepts_dot_prefix_and_rejects_duplicate_metadata():
+    import io
+    import tarfile
+
+    from ml.artifact import read_artifact
+
+    def archive(names):
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w:gz") as tar:
+            for name in names:
+                body = b"data"
+                member = tarfile.TarInfo(name)
+                member.size = len(body)
+                tar.addfile(member, io.BytesIO(body))
+        output.seek(0)
+        return output
+
+    assert read_artifact(archive(["./model.txt", "./model.json"])) == (b"data", b"data")
+    with pytest.raises(ValueError):
+        read_artifact(archive(["model.txt", "model.json", "./model.json"]))

@@ -29,3 +29,4 @@ services/pipeline/**
 !ml/__init__.py
 !ml/features.py
 !ml/inference-requirements.txt
+!ml/artifact.py

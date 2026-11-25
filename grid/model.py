@@ -4,9 +4,9 @@ import gzip
 import hashlib
 import io
 import json
-import tarfile
 from datetime import timedelta
 
+from ml.artifact import read_artifact
 from ml.features import vector
 from services.forecast.model_tile import CELLS, NAMES, NO_DATA, NO_FEATURE, SCHEMA, WIDTH_BYTES
 from services.forecast.product import unpack
@@ -32,17 +32,8 @@ def load_approved(sm, store, group):
     if not url.startswith(prefix) or not url.endswith("/output/model.tar.gz"):
         raise ValueError("Registry artifact is outside the SkyCalm training prefix")
     archive = store.read(url.removeprefix(f"s3://{store.bucket}/"), 5_000_000)
-    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
-
-        def read(name, limit):
-            member = tar.getmember(name)
-            if not member.isfile() or not 0 < member.size <= limit:
-                raise ValueError("Unexpected model artifact")
-            with tar.extractfile(member) as handle:
-                return handle.read()
-
-        text = read("model.txt", 5_000_000)
-        meta = json.loads(read("model.json", 2048))
+    text, metadata = read_artifact(io.BytesIO(archive))
+    meta = json.loads(metadata)
     if (
         meta["schema"] != SCHEMA
         or meta["features"] != list(NAMES)

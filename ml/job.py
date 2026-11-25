@@ -2,19 +2,17 @@
 
 import json
 import sys
-import tarfile
 from pathlib import Path
+
+from ml.artifact import read_artifact
 
 
 def unpack_model(archive, output):
     output.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(archive, "r:gz") as tar:
-        for name in ("model.txt", "model.json"):
-            member = tar.getmember(name)
-            if not member.isfile() or not 0 < member.size <= 5_000_000:
-                raise ValueError("Invalid model artifact")
-            with tar.extractfile(member) as src:
-                (output / name).write_bytes(src.read(member.size))
+    with archive.open("rb") as source:
+        text, metadata = read_artifact(source)
+    (output / "model.txt").write_bytes(text)
+    (output / "model.json").write_bytes(metadata)
 
 
 def main():
