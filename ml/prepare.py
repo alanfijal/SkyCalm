@@ -1,4 +1,4 @@
-"""Join explicit aircraft reports to forecasts available at observation time."""
+"""Join explicit aircraft reports to forecast cycles issued by observation time."""
 
 import argparse
 import hashlib

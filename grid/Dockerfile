@@ -4,6 +4,10 @@ WORKDIR /app
 COPY grid/requirements.txt /tmp/grid-requirements.txt
 RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/grid-requirements.txt \
     && python -m eccodes selfcheck
+RUN --mount=type=tmpfs,target=/var/cache/apt/archives apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+COPY ml/inference-requirements.txt /tmp/inference-requirements.txt
+RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/inference-requirements.txt
+COPY ml/__init__.py ml/features.py ml/
 COPY grid/ grid/
 COPY services/ services/
 USER 65532:65532
