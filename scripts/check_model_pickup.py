@@ -58,7 +58,7 @@ class Artifact:
         return self.path.read_bytes()
 
 
-def verify(archive):
+def verify(archive, preview_dir=None):
     artifact = Artifact(archive)
     assert load_approved(RegistryFixture(None), artifact, GROUP) is None
     candidate = load_approved(RegistryFixture(1), artifact, GROUP)
@@ -81,6 +81,8 @@ def verify(archive):
         item = manifest["leads"][0]
         blob = (output / "ml-000.gz").read_bytes()
         assert gzip.decompress(blob) and hashlib.sha256(blob).hexdigest() == item["modelSha256"]
+        if preview_dir:
+            LocalStore(preview_dir).publish(output, manifest)
         print(
             json.dumps(
                 {
@@ -97,4 +99,6 @@ def verify(archive):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("archive", type=Path)
-    verify(parser.parse_args().archive)
+    parser.add_argument("--preview-dir", type=Path, help="Save the fixture grid for the local UI")
+    args = parser.parse_args()
+    verify(args.archive, args.preview_dir)
