@@ -31,14 +31,14 @@ resource "aws_lambda_function" "passenger" {
     log_group             = aws_cloudwatch_log_group.passenger[each.key].name
   }
   environment {
-    variables = each.key == "push" ? tomap({ VAPID_SECRET = aws_secretsmanager_secret.passenger["vapid"].arn, VAPID_SUBJECT = var.passenger_settings.classroom_email == "" ? local.callback : "mailto:${var.passenger_settings.classroom_email}" }) : tomap({
+    variables = each.key == "push" ? tomap({ VAPID_SECRET = aws_secretsmanager_secret.passenger["vapid"].arn, VAPID_SUBJECT = var.passenger_settings.classroom_email == "" ? local.callback : "mailto:${var.passenger_settings.classroom_email}" }) : merge({
       PASSENGERS     = aws_dynamodb_table.passengers.name, PIPELINE_BUS = module.pipeline.bus_name, PIPELINE_TABLE = module.pipeline.table_name,
       SKYCALM_BUCKET = aws_s3_bucket.app["weather"].id, SKYCALM_TABLE = aws_dynamodb_table.runs.name,
       USER_POOL      = aws_cognito_user_pool.passengers.id, SES_FROM = var.passenger_settings.classroom_email, SES_RECIPIENT = var.passenger_settings.classroom_email,
       WORK_QUEUE     = aws_sqs_queue.passenger_work.url, WORK_ARN = aws_sqs_queue.passenger_work.arn, DEAD_ARN = aws_sqs_queue.passenger_dead.arn,
       SCHEDULE_GROUP = aws_scheduler_schedule_group.passengers.name, SCHEDULER_ROLE = aws_iam_role.reminders.arn,
       PUSH_FUNCTION  = "${local.passenger_name}-push", HEALTH_QUEUES = jsonencode(local.health_queues)
-    })
+    }, each.key == "api" ? { CLASSROOM_EMAIL = local.passenger_login_email } : {})
   }
   lifecycle {
     precondition {

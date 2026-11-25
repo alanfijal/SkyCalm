@@ -65,19 +65,22 @@ def identity_attributes(event, clients):
 
 
 def verified_email(event, clients):
-    attrs = identity_attributes(event, clients)
-    sandbox = os.environ.get("SES_RECIPIENT", "")
-    if not sandbox:
+    recipient = os.environ.get("SES_RECIPIENT", "")
+    if not recipient:
         raise RequestError("email_unavailable", "Classroom email delivery is not configured.")
+    invited = os.environ.get("CLASSROOM_EMAIL", recipient).strip().casefold()
+    attrs = identity_attributes(event, clients)
     if (
-        attrs.get("email_verified") != "true"
-        or not attrs.get("email")
-        or (sandbox and sandbox.casefold() != attrs["email"].casefold())
+        not invited
+        or attrs.get("email_verified") != "true"
+        or attrs.get("email", "").strip().casefold() != invited
     ):
         raise RequestError(
-            "email_unavailable", "Email delivery requires a verified classroom mailbox.", 422
+            "email_unavailable",
+            "Verify the invited sign-in address to enable classroom email.",
+            422,
         )
-    return attrs["email"]
+    return recipient
 
 
 def admin_action(path, method, body, owner, store, now, clients):

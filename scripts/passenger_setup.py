@@ -69,7 +69,12 @@ def prepare(directory):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--private-dir", type=Path, required=True)
-    p.add_argument("--classroom-email", required=True)
+    p.add_argument(
+        "--classroom-email", required=True, help="Verified SES mailbox for classroom alerts"
+    )
+    p.add_argument(
+        "--login-email", help="Invited sign-in address if different from the SES mailbox"
+    )
     p.add_argument("--profile", default="coldchain-console")
     p.add_argument("--provision-approved-secrets", action="store_true")
     a = p.parse_args()
@@ -84,6 +89,8 @@ def main():
             "classroom_email": a.classroom_email,
         }
     }
+    if a.login_email:
+        config["passenger_settings"]["login_email"] = a.login_email.strip()
     vars_path = directory / "passengers.tfvars.json"
     if not vars_path.exists():
         write_private(vars_path, config)

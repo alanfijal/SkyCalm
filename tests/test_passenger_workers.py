@@ -17,6 +17,42 @@ def test_classroom_signup_leaves_verification_to_provider(monkeypatch):
         admission.handler({"request": {"userAttributes": {"email": "else@example.edu"}}}, None)
 
 
+@pytest.mark.parametrize(
+    ("email", "verified", "permitted"),
+    [
+        ("Presenter@example.com", "true", True),
+        ("presenter@example.com", "false", False),
+        ("team@example.edu", "true", False),
+        ("other@example.com", "true", False),
+    ],
+)
+def test_invite_maps_only_its_verified_identity_to_the_classroom_mailbox(
+    store, monkeypatch, email, verified, permitted
+):
+    monkeypatch.setenv("CLASSROOM_EMAIL", "presenter@example.com")
+    monkeypatch.setenv("SES_RECIPIENT", "team@example.edu")
+    cognito = Mock()
+    cognito.get_user.return_value = {
+        "UserAttributes": [
+            {"Name": "email", "Value": email},
+            {"Name": "email_verified", "Value": verified},
+        ]
+    }
+    req = http(
+        "/api/me/preferences",
+        "PUT",
+        {"channel": "email", "enabled": True, "email": "else@example.net"},
+        scope=api.PREF,
+    )
+    if permitted:
+        api.dispatch(req, store, lambda name: cognito, NOW)
+        assert store.get(OWNER, "account")["prefs"]["email"] == "team@example.edu"
+    else:
+        with pytest.raises(api.RequestError, match="invited sign-in"):
+            api.dispatch(req, store, lambda name: cognito, NOW)
+        assert "prefs" not in store.get(OWNER, "account")
+
+
 def test_demo_seed_respects_personal_routes_and_replayed_events(store, monkeypatch):
     monkeypatch.setenv("PIPELINE_BUS", "demo")
     req = {"action": "seed", "requestId": str(uuid4())}

@@ -483,7 +483,7 @@ export default function Passengers({
                     </button>
                   </div>
                   <div className="pass-row">
-                    <span>Email fallback</span>
+                    <span>Classroom email fallback</span>
                     <button
                       disabled={busy}
                       onClick={() =>

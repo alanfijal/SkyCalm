@@ -5,11 +5,20 @@ variables {
   lambda_zip         = "../../../build/forecast.zip"
   web_directory      = "../../../web/dist"
   archive_directory  = "../../../services/forecast/data/replay"
-  passenger_settings = { google_ready = true, vapid_public = "classroom-public-key", classroom_email = "team@example.edu" }
+  passenger_settings = { google_ready = true, vapid_public = "classroom-public-key", classroom_email = "team@example.edu", login_email = "presenter@example.com" }
 }
 run "passenger_controls" {
   command = plan
   module { source = "../../modules/forecast" }
+  assert {
+    condition = (
+      aws_lambda_function.passenger_admission.environment[0].variables["CLASSROOM_EMAIL"] == "presenter@example.com" &&
+      aws_lambda_function.passenger["api"].environment[0].variables["CLASSROOM_EMAIL"] == "presenter@example.com" &&
+      aws_lambda_function.passenger["api"].environment[0].variables["SES_RECIPIENT"] == "team@example.edu" &&
+      aws_sesv2_email_identity.classroom[0].email_identity == "team@example.edu"
+    )
+    error_message = "The sign-in invite and the verified email destination must be independently configurable."
+  }
   assert {
     condition     = aws_cognito_user_pool_client.passengers.allowed_oauth_flows == toset(["code"]) && !aws_cognito_user_pool_client.passengers.generate_secret && aws_cognito_user_pool_client.passengers.refresh_token_rotation[0].feature == "ENABLED"
     error_message = "A public PKCE client requires code flow and rotating refresh tokens."

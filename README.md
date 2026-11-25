@@ -61,6 +61,8 @@ Terraform defines an on-demand weather collector, a Glue table with daily partit
 
 With passenger services enabled, open **My flights** or choose **Save route** on a forecast. Sign in with the invited classroom email or Google, confirm a future UTC departure and choose **Save flight**. The **Account** tab manages browser alerts, email fallback, JSON export and deletion. On iPhone, add SkyCalm to the Home Screen and open it there before enabling push. The public forecast and archived weather remain available to visitors.
 
+For a presenter who uses a separate Google account, pass `--login-email` to `scripts/passenger_setup.py`. The invite admits that address. Opted-in email goes to the verified mailbox given by `--classroom-email`. Keep both values in the private environment configuration.
+
 Each passenger can save eight flights. Live grid events reassess departures within 36 hours. A change in peak category or a shift of more than 30 minutes in the first moderate-or-severe section can trigger an alert, with three hours between change alerts per flight. Future 24-hour and 3-hour reminders expire after execution. The authenticated `/demo` page seeds three classroom routes, publishes an archived run and tests delivery. `/health` shows queue counts and the last push accepted for the operator. Both pages require the admin group and scope.
 
 ## Run a forecast from the operator panel

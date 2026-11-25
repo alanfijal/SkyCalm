@@ -15,7 +15,12 @@ variable "discovery_window" {
   default = null
 }
 variable "passenger_settings" {
-  type    = object({ google_ready = bool, vapid_public = string, classroom_email = string })
+  type = object({
+    google_ready    = bool
+    vapid_public    = string
+    classroom_email = string
+    login_email     = optional(string)
+  })
   default = { google_ready = false, vapid_public = "", classroom_email = "" }
 }
 module "forecast" {
