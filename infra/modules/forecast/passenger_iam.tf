@@ -23,6 +23,7 @@ locals {
       { Effect = "Allow", Action = "cognito-idp:AdminDeleteUser", Resource = aws_cognito_user_pool.passengers.arn },
       { Effect = "Allow", Action = "events:PutEvents", Resource = local.bus_arn, Condition = { StringEquals = { "events:source" = "skycalm.forecast", "events:detail-type" = ["forecast.run.available", "passenger.change.test"] } } },
       { Effect = "Allow", Action = "dynamodb:GetItem", Resource = [aws_dynamodb_table.runs.arn, module.pipeline.table_arn] },
+      { Effect = "Allow", Action = "s3:GetObject", Resource = "${local.weather_arn}/runs/ti1-cape-v1/*/manifest.json" },
     { Effect = "Allow", Action = "sqs:GetQueueAttributes", Resource = concat(module.pipeline.queue_arns, [aws_sqs_queue.passenger_work.arn, aws_sqs_queue.passenger_dead.arn]) }]),
     worker = concat([local.read_flights,
       { Effect = "Allow", Action = "dynamodb:Query", Resource = "${local.passenger_db}/index/departures" },

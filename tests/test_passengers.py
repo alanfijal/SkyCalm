@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock
 from uuid import uuid4
 
 import boto3
@@ -141,6 +142,36 @@ def test_scopes_group_and_token_use():
         with pytest.raises(RequestError):
             identity(http(scope=scope, groups=groups, use=use), api.ADMIN)
     assert identity(http(scope=api.ADMIN, groups="[admins]"), api.ADMIN)[0] == OWNER
+
+
+@pytest.mark.parametrize(
+    ("latest", "manifest", "expected"),
+    [(None, None, None), ("run1", {}, None), ("run2", {"model": {"version": 1}}, 1)],
+)
+def test_health_reads_the_version_from_the_published_grid(
+    store, monkeypatch, latest, manifest, expected
+):
+    weather = Mock()
+    weather.latest.return_value = latest
+    weather.published_manifest.return_value = manifest
+    weather.table.get_item.return_value = {"Item": {"asOfTime": "2026-11-25T06:00:00Z"}}
+    jobs = Mock()
+    jobs.get_item.return_value = {}
+    monkeypatch.setattr(api.runtime, "weather", lambda: weather)
+    monkeypatch.setattr(api.runtime, "table", lambda: jobs)
+    monkeypatch.setenv("HEALTH_QUEUES", "{}")
+    result = api.dispatch(
+        http("/api/admin/health", scope=api.ADMIN, groups="[admins]"),
+        store,
+        now=NOW,
+        clients=Mock(),
+    )
+    assert result["modelVersion"] == expected
+    assert result["observationsAsOf"] == "2026-11-25T06:00:00Z"
+    if latest:
+        weather.published_manifest.assert_called_once_with(latest)
+    else:
+        weather.published_manifest.assert_not_called()
 
 
 def test_forecast_outbox_and_three_hour_limit(store):

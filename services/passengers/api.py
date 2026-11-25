@@ -97,13 +97,20 @@ def admin_action(path, method, body, owner, store, now, clients):
             )["Attributes"]
             counts[name] = sum(int(n) for n in attr.values())
         job = runtime.table().get_item(Key={"pk": "active"}, ConsistentRead=True).get("Item", {})
-        last = runtime.weather().latest()
+        weather = runtime.weather()
+        last = weather.latest()
+        manifest = weather.published_manifest(last) if last else None
+        observation = weather.table.get_item(
+            Key={"pk": "observations#awc"}, ConsistentRead=True
+        ).get("Item", {})
         notices = view(store, owner, int(now.timestamp()))["inbox"]
         return {
             "queues": counts,
             "active": job.get("jobId"),
             "latestRun": last,
             "model": SCORER,
+            "modelVersion": (manifest or {}).get("model", {}).get("version"),
+            "observationsAsOf": observation.get("asOfTime"),
             "traffic": "Disabled pending permission",
             "lastPush": max(
                 (n.get("deliveredAt", 0) for n in notices if n.get("delivery") == "push"),

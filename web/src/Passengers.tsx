@@ -573,6 +573,8 @@ function Operator({
   const [health, setHealth] = useState<{
     latestRun: string;
     model: string;
+    modelVersion?: number | null;
+    observationsAsOf?: string | null;
     traffic: string;
     lastPush: number | null;
     queues: Record<string, number>;
@@ -651,7 +653,20 @@ function Operator({
           <section className="pass-card">
             <h2>Pipeline</h2>
             <p>Latest grid · {health.latestRun ?? "Unavailable"}</p>
-            <p>Model · {health.model}</p>
+            <p>
+              Forecast method ·{" "}
+              {health.modelVersion
+                ? `LightGBM v${health.modelVersion} with physics fallback`
+                : health.latestRun
+                  ? "Physics baseline"
+                  : "Awaiting first grid"}
+            </p>
+            <p>
+              Weather observations ·{" "}
+              {health.observationsAsOf
+                ? time(health.observationsAsOf)
+                : "No snapshot recorded"}
+            </p>
             <p>Aircraft · {health.traffic}</p>
             <p>
               Last push accepted ·{" "}
