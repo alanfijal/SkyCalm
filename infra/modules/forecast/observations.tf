@@ -24,15 +24,15 @@ resource "aws_iam_role_policy" "observations" {
   ] })
 }
 resource "aws_lambda_function" "observations" {
-  function_name    = "${local.name}-observations"
-  role             = aws_iam_role.observations.arn
-  runtime          = "python3.12"
-  architectures    = ["arm64"]
-  handler          = "services.observations.handler.handler"
-  memory_size      = 256
-  timeout          = 90
-  filename         = var.lambda_zip
-  source_code_hash = filebase64sha256(var.lambda_zip)
+  function_name = "${local.name}-observations-img"
+  role          = aws_iam_role.observations.arn
+  package_type  = "Image"
+  image_uri     = local.lambda_images.python
+  image_config { command = ["services.observations.handler.handler"] }
+  lifecycle { create_before_destroy = true }
+  architectures = ["arm64"]
+  memory_size   = 256
+  timeout       = 90
   environment { variables = { SKYCALM_BUCKET = aws_s3_bucket.app["weather"].id, SKYCALM_TABLE = aws_dynamodb_table.runs.name } }
   logging_config {
     log_format            = "JSON"
@@ -42,6 +42,7 @@ resource "aws_lambda_function" "observations" {
   }
 }
 resource "aws_lambda_function_event_invoke_config" "observations" {
+  lifecycle { create_before_destroy = true }
   function_name                = aws_lambda_function.observations.function_name
   maximum_event_age_in_seconds = 300
   maximum_retry_attempts       = 0
@@ -63,3 +64,5 @@ resource "aws_s3_object" "historical_reports" {
   content_type     = "application/x-ndjson"
   content_encoding = "gzip"
 }
+
+output "observations_function" { value = aws_lambda_function.observations.function_name }

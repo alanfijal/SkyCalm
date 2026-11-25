@@ -39,6 +39,7 @@ resource "aws_apigatewayv2_route" "forecast" {
   target    = "integrations/${aws_apigatewayv2_integration.forecast.id}"
 }
 resource "aws_lambda_permission" "api" {
+  lifecycle { create_before_destroy = true }
   for_each      = aws_apigatewayv2_route.forecast
   statement_id  = "AllowGet-${basename(each.key)}"
   action        = "lambda:InvokeFunction"

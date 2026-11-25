@@ -14,7 +14,7 @@ resource "aws_iam_role_policy" "reminders" {
 }
 locals {
   passenger_db = aws_dynamodb_table.passengers.arn
-  push_arn     = "arn:aws:lambda:${local.region}:${var.account_id}:function:${local.passenger_name}-push"
+  push_arn     = "arn:aws:lambda:${local.region}:${var.account_id}:function:${local.passenger_name}-push-img"
   bus_arn      = "arn:aws:events:${local.region}:${var.account_id}:event-bus/${module.pipeline.bus_name}"
   read_flights = { Effect = "Allow", Action = ["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"], Resource = local.passenger_db }
   private_permissions = {

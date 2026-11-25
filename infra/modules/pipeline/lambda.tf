@@ -26,16 +26,16 @@ resource "aws_cloudwatch_log_group" "function" {
   retention_in_days = 7
 }
 resource "aws_lambda_function" "run" {
-  for_each         = local.functions
-  function_name    = "${local.prefix}-${each.key}"
-  role             = aws_iam_role.function[each.key].arn
-  architectures    = ["arm64"]
-  runtime          = "python3.12"
-  handler          = "services.pipeline.${each.value.handler}"
-  memory_size      = 256
-  timeout          = each.value.timeout
-  filename         = var.lambda_zip
-  source_code_hash = filebase64sha256(var.lambda_zip)
+  for_each      = local.functions
+  function_name = "${local.prefix}-${each.key}-img"
+  role          = aws_iam_role.function[each.key].arn
+  package_type  = "Image"
+  image_uri     = var.python_image
+  image_config { command = ["services.pipeline.${each.value.handler}"] }
+  lifecycle { create_before_destroy = true }
+  architectures = ["arm64"]
+  memory_size   = 256
+  timeout       = each.value.timeout
   environment {
     variables = { PIPELINE_TABLE = aws_dynamodb_table.jobs.name, PIPELINE_BUS = aws_cloudwatch_event_bus.forecast.name, STATE_MACHINE = local.machine_arn, SKYCALM_BUCKET = var.weather_bucket, SKYCALM_TABLE = var.runs_table }
   }

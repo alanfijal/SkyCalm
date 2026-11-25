@@ -6,7 +6,7 @@ terraform {
 variable "name" { type = string }
 variable "region" { type = string }
 variable "account_id" { type = string }
-variable "lambda_zip" { type = string }
+variable "python_image" { type = string }
 variable "weather_bucket" { type = string }
 variable "runs_table" { type = string }
 variable "task_arn" { type = string }

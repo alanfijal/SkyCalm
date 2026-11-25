@@ -1,7 +1,8 @@
 mock_provider "aws" {}
 variables {
-  account_id   = "123456789012"
-  image_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  lambda_image_digests = { python = "sha256:1111111111111111111111111111111111111111111111111111111111111111", push = "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+  account_id           = "123456789012"
+  image_digest         = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 run "compose_environment" {
   command = plan
@@ -10,7 +11,6 @@ run "forecast_controls" {
   command = plan
   module { source = "../../modules/forecast" }
   variables {
-    lambda_zip        = "../../../build/forecast.zip"
     web_directory     = "../../../web/dist"
     archive_directory = "../../../services/forecast/data/replay"
   }
@@ -37,11 +37,16 @@ run "reject_mutable_image" {
   expect_failures = [var.image_digest]
 }
 
+run "reject_mutable_lambda_tags" {
+  command = plan
+  variables { lambda_image_digests = { python = "latest", push = "latest" } }
+  expect_failures = [var.lambda_image_digests]
+}
+
 run "finite_weather_window" {
   command = plan
   module { source = "../../modules/forecast" }
   variables {
-    lambda_zip         = "../../../build/forecast.zip"
     web_directory      = "../../../web/dist"
     archive_directory  = "../../../services/forecast/data/replay"
     observation_window = { start = "2027-01-04T12:00:00Z", end = "2027-01-04T13:00:00Z" }
@@ -56,7 +61,6 @@ run "reject_unbounded_weather_window" {
   command = plan
   module { source = "../../modules/forecast" }
   variables {
-    lambda_zip         = "../../../build/forecast.zip"
     web_directory      = "../../../web/dist"
     archive_directory  = "../../../services/forecast/data/replay"
     observation_window = { start = "2027-01-04T12:00:00Z", end = "2027-01-05T12:00:00Z" }

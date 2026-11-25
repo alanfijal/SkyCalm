@@ -21,7 +21,6 @@ jobs:
       - run: python -m ruff format --check grid services scripts tests
       - run: python -m ruff check grid services scripts tests
       - run: python -m pytest -q
-      - run: python scripts/package_lambda.py
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: web/.nvmrc
@@ -29,7 +28,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --omit=dev --ignore-scripts && npm test && npm audit --omit=dev --audit-level=high
         working-directory: services/delivery
-      - run: python scripts/package_push.py
       - run: npm ci
         working-directory: web
       - run: npm run lint && npm test && npm run build && npm audit --omit=dev --audit-level=high
@@ -52,6 +50,15 @@ jobs:
             terraform -chdir="$directory" test
           done
       - run: bash -n scripts/check_aws.sh && bash -n scripts/run_grid.sh
+  lambda-images:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/lambda_images.sh build
+      - run: python3 scripts/check_lambda_images.py
   security:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
