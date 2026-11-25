@@ -1,0 +1,13 @@
+{
+  "name": "skycalm-browser-delivery",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test push.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "3.1177.0",
+    "web-push": "4.0.0"
+  }
+}
