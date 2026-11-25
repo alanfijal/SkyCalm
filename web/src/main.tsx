@@ -1,5 +1,7 @@
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/dm-sans";
 import "./styles.css";
-import App from "./App";
-createRoot(document.getElementById("root")!).render(<App />);
+import Router from "./Router";
+createRoot(document.getElementById("root")!).render(<Router />);
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
