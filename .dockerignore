@@ -25,3 +25,8 @@ services/pipeline/**
 !services/pipeline/contract.py
 **/__pycache__/
 **/*.pyc
+!ml/
+!ml/__init__.py
+!ml/features.py
+!ml/inference-requirements.txt
+!ml/artifact.py

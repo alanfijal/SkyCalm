@@ -37,12 +37,16 @@ export interface Sample {
   at: string;
   category: Category;
   method: string;
+  probability?: number;
+  driver?: string | null;
   ti1: number | null;
   shear: number | null;
   cape: number | null;
   phase: "climb" | "cruise" | "descent";
 }
 export interface Forecast {
+  briefing?: string;
+  modelVersion?: number | null;
   origin: Airport;
   destination: Airport;
   run: Run;

@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import signal
 import tempfile
 import time
@@ -30,7 +31,7 @@ def build_lead(run_id: str, lead: int, directory: Path) -> dict:
         source.http.clear()
 
 
-def build(run_id: str, store) -> dict:
+def build(run_id: str, store, model=None) -> dict:
     issued = issue_time(run_id)
     existing = store.published_manifest(run_id)
     if existing:
@@ -49,6 +50,10 @@ def build(run_id: str, store) -> dict:
             "source": "NOAA GFS 0.25°",
             "tileStep": 1,
         }
+        if model is not None:
+            from grid.model import add_predictions
+
+            add_predictions(directory, manifest, model)
         (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         store.publish(directory, manifest)
         return manifest
@@ -64,10 +69,28 @@ def main() -> None:
     # The essential Fargate container exits at the deadline, including during retries.
     signal.alarm(600)
     store = LocalStore(args.directory)
+    model = None
     if args.aws:
         from services.forecast.aws import AwsStore
 
         store = AwsStore.from_env()
+        if group := os.getenv("SKYCALM_MODEL_GROUP"):
+            import boto3
+            from botocore.config import Config
+
+            from grid.model import load_approved
+
+            client = boto3.client(
+                "sagemaker",
+                region_name="eu-north-1",
+                config=Config(connect_timeout=3, read_timeout=8, retries={"total_max_attempts": 2}),
+            )
+            model = load_approved(client, store, group)
+            print(
+                json.dumps(
+                    {"event": "grid.model", "version": model[1]["version"] if model else "baseline"}
+                )
+            )
     source = GfsSource()
     started = time.monotonic()
     try:
@@ -81,9 +104,11 @@ def main() -> None:
                 parser.error("--job requires --aws")
             mode = "replay" if args.job.startswith("replay-") else "live"
             store = StagedGrid(store, job_spec(run_id, args.job, mode))
-            result = rebuild(run_id, store) if mode == "replay" else build(run_id, store)
+            result = (
+                rebuild(run_id, store, model) if mode == "replay" else build(run_id, store, model)
+            )
         else:
-            result = build(run_id, store)
+            result = build(run_id, store, model)
     except (ValueError, NotReady, SourceError, OSError) as exc:
         parser.exit(1, f"Grid build failed: {exc}\n")
     finally:

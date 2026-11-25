@@ -27,10 +27,10 @@ resource "aws_ecs_task_definition" "grid" {
   container_definitions = jsonencode([{
     name = "grid", image = local.grid_image, essential = true,
     user = "65532:65532", stopTimeout = 30,
-    environment = [
+    environment = concat([
       { name = "SKYCALM_BUCKET", value = aws_s3_bucket.app["weather"].id },
       { name = "SKYCALM_TABLE", value = aws_dynamodb_table.runs.name }
-    ],
+    ], var.training_image_digest == null ? [] : [{ name = "SKYCALM_MODEL_GROUP", value = "skycalm-turbulence" }]),
     logConfiguration = { logDriver = "awslogs", options = {
       "awslogs-group"  = aws_cloudwatch_log_group.grid.name,
       "awslogs-region" = local.region, "awslogs-stream-prefix" = "grid"

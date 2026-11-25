@@ -16,7 +16,7 @@ from services.pipeline.contract import REPLAYS
 ROOT = Path(__file__).parent / "replay"
 
 
-def rebuild(run_id: str, store) -> dict:
+def rebuild(run_id: str, store, model=None) -> dict:
     if run_id not in REPLAYS:
         raise ValueError("No pinned input features for this run")
     frozen = ROOT / run_id
@@ -42,6 +42,10 @@ def rebuild(run_id: str, store) -> dict:
                 raise ValueError("Recomputed grid differs from the archive")
             (directory / tile_name(lead["lead"])).write_bytes(tile)
             lead["sha256"] = hashlib.sha256(tile).hexdigest()
+        if model is not None:
+            from grid.model import add_predictions
+
+            add_predictions(directory, manifest, model)
         (directory / "manifest.json").write_text(json.dumps(manifest) + "\n")
         store.publish(directory, manifest)
     return manifest

@@ -1,10 +1,13 @@
 """Read-only API used by both the local server and API Gateway."""
 
 import json
+import math
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
+from services.forecast.briefing import cache_key, select, variants
+from services.forecast.model_tile import decode_predictions, point_prediction
 from services.forecast.product import sample, unpack
 from services.forecast.route import route_points
 from services.forecast.schema import CATEGORIES, inside, issue_time, utc_text
@@ -149,6 +152,10 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         raise RequestError("same_airport", str(exc)) from exc
     cubes = {}
     digests = {item["lead"]: item["sha256"] for item in manifest["leads"]}
+    predictions = {}
+    model_digests = {
+        item["lead"]: item["modelSha256"] for item in manifest["leads"] if "modelSha256" in item
+    }
     start_hours = (departure - issued).total_seconds() / 3600
     for pt in points:
         hours = start_hours + pt["elapsedMinutes"] / 60
@@ -158,8 +165,22 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
                 if lead not in cubes:
                     cubes[lead] = unpack(store.tile(run_id, lead, digests[lead]))
         pt.update(sample(cubes, hours, pt))
+        if model_digests and pt["method"] == "ti1":
+            near = 3 * math.ceil(hours / 3 - 0.5)
+            if near not in predictions:
+                predictions[near] = decode_predictions(
+                    store.model_tile(run_id, near, model_digests[near])
+                )
+            pt.update(point_prediction(predictions[near], cubes[near], pt))
         pt["elapsedMinutes"] = round(pt["elapsedMinutes"], 2)
         pt["distanceKm"] = round(pt["distanceKm"], 2)
+    options = variants(points)
+    key = cache_key(run_id, origin["code"], dest["code"], utc_text(departure), options)
+    try:
+        cached = store.briefing(key) if hasattr(store, "briefing") else None
+        briefing = select(options, cached["choices"] if cached else [0, 0])
+    except (OSError, KeyError, ValueError, TypeError):
+        briefing = select(options, [0, 0])
     classes = [p["category"] for p in points if p["category"] in CATEGORIES]
     return {
         "origin": origin,
@@ -171,4 +192,6 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         "durationMinutes": round(distance / 800 * 60),
         "peak": max(classes, key=CATEGORIES.index) if classes else "unavailable",
         "samples": points,
+        "briefing": briefing,
+        "modelVersion": manifest.get("model", {}).get("version"),
     }

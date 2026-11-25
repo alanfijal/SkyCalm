@@ -1,0 +1,12 @@
+**
+!ml/
+!ml/*.py
+!ml/requirements.txt
+!services/
+!services/__init__.py
+!services/forecast/
+!services/forecast/__init__.py
+!services/forecast/product.py
+!services/forecast/schema.py
+!services/forecast/storage.py
+!services/forecast/model_tile.py

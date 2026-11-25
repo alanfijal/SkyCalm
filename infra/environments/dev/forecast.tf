@@ -1,3 +1,12 @@
+variable "training_image_digest" {
+  description = "An approved amd64 training image digest enables the on-demand ML pipeline."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.training_image_digest == null ? true : can(regex("^sha256:[a-f0-9]{64}$", var.training_image_digest))
+    error_message = "Use an immutable SageMaker container digest."
+  }
+}
 variable "lambda_image_digests" {
   description = "Immutable linux/arm64 manifests from skycalm/functions."
   type        = object({ python = string, push = string })
@@ -32,15 +41,16 @@ variable "passenger_settings" {
   default = { google_ready = false, vapid_public = "", classroom_email = "" }
 }
 module "forecast" {
-  passenger_settings   = var.passenger_settings
-  source               = "../../modules/forecast"
-  account_id           = var.account_id
-  image_digest         = var.image_digest
-  observation_window   = var.observation_window
-  discovery_window     = var.discovery_window
-  lambda_image_digests = var.lambda_image_digests
-  web_directory        = abspath("${path.root}/../../../web/dist")
-  archive_directory    = abspath("${path.root}/../../../services/forecast/data/replay")
+  training_image_digest = var.training_image_digest
+  passenger_settings    = var.passenger_settings
+  source                = "../../modules/forecast"
+  account_id            = var.account_id
+  image_digest          = var.image_digest
+  observation_window    = var.observation_window
+  discovery_window      = var.discovery_window
+  lambda_image_digests  = var.lambda_image_digests
+  web_directory         = abspath("${path.root}/../../../web/dist")
+  archive_directory     = abspath("${path.root}/../../../services/forecast/data/replay")
 }
 output "pipeline_operator_policy" { value = module.forecast.pipeline_operator_policy }
 output "website" { value = module.forecast.website }
