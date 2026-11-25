@@ -129,7 +129,21 @@ CHECK_GRID_IMAGE=skycalm-grid:local bash scripts/check_training.sh
 
 The script prints the directory containing the Parquet splits, trained artifact, evaluation JSON and presentation report. With `CHECK_GRID_IMAGE` it also saves a `preview` grid. To see the candidate in the local UI, use the printed directory in `python -m services.forecast.local --data <directory>/preview`. Open the November 21 06:00 UTC replay and forecast Edinburgh to Porto at 14:15 UTC. Select a cruise point on the timeline to see its probability and strongest contributing factor. This classroom preview uses a simulated registry approval on your laptop.
 
-In the five-day archive, 28 reports trained the model, 16 selected its iteration and seven tested it. Held-out macro F1 was 0.354 for LightGBM and 0.183 for the physical baseline. All seven held-out reports were light or moderate and east of 12°W. The gate requires five examples of each category in each evaluation region, an improvement in European macro F1 and no regression in moderate or severe recall. This candidate stays pending.
+In the five-day archive, 28 reports trained the model, 16 selected its iteration and seven tested it. Held-out macro F1 was 0.354 for LightGBM and 0.183 for the physical baseline. All seven held-out reports were light or moderate and east of 12°W. The gate requires five examples of each category in each evaluation region, an improvement in European macro F1 and no regression in moderate or severe recall. Its decision was pending. On 25 November 2026 the project owner manually approved v1 for the classroom demo. The 18:00 UTC grid then loaded v1 from the registry and scored 59 of the 69 samples on Edinburgh–Porto. The other ten used the near-surface CAPE calculation.
+
+### Rehearse the model and route history
+
+Choose **Weather source → Replay · 25 Nov · 18:00 UTC**. Select Edinburgh (EDI) and Porto (OPO), set departure to **26 November at 02:15 UTC** and choose **Forecast flight**. Select a cruise sample to see v1’s probability and feature contribution. This replay preserves the original published tiles. The earlier 21 November replay has the aircraft observation used in the classroom comparison.
+
+Open **Route history** to explore five departures each on three routes. **Post-flight recap** pairs observed turbulence with a particular forecast sample. On the 21 November Edinburgh–Porto flight the pilot reported light turbulence and the nearby forecast sample was moderate. Open **How reports are matched** for the distance, time and altitude bounds. The page reads a small static snapshot. Athena uses the same S3 objects through an explicit Glue table. To regenerate or check the results:
+
+```sh
+python -m scripts.route_history --check
+# After deploying the catalog, reuse the same check ID to re-read the same Athena execution.
+python -m scripts.check_route_history --account "$TF_VAR_account_id" --check-id "$(git rev-parse HEAD)"
+```
+
+Set `enable_edge_waf=true` at deployment to attach the optional CloudFront ACL. With it enabled, the public forecast uses CloudFront and an IAM-signed Lambda URL. Direct API Gateway forecast routes then require IAM. The separate passenger API continues to check Cognito tokens. The two WAF rules cost about $7 per month while active, plus request charges. The default is off. [AWS WAF pricing](https://aws.amazon.com/waf/pricing/)
 
 The optional Stockholm SageMaker pipeline uses two network-isolated Processing jobs and one Training job, each capped at five minutes on one `ml.m5.large`. Set `training_image_digest` to the published training image in the grid repository when planning an approved release. Start a single run with `aws sagemaker start-pipeline-execution --pipeline-name skycalm-turbulence --region eu-north-1`. The evaluation selects the registry status. SageMaker approval events publish `model.approved` on the forecast bus. At the start of a new grid job, Fargate pins the most recent approved model. Published runs retain their original forecast. Pressure-level predictions carry their winning-class probability and strongest positive TreeSHAP feature. Climb and descent continue to use the physical fallback below the pressure grid.
 

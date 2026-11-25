@@ -62,8 +62,8 @@ resource "aws_glue_catalog_table" "route_days" {
     ser_de_info { serialization_library = "org.openx.data.jsonserde.JsonSerDe" }
     dynamic "columns" {
       for_each = {
-        origin = "string", destination = "string", run_id = "string", departure = "string",
-        peak = "string", snapshot_at = "string", report_count = "int",
+        origin  = "string", destination = "string", run_id = "string", departure = "string",
+        peak    = "string", snapshot_at = "string", report_count = "int",
         reports = "array<struct<source:string,observed:string,altitude_ft:int,distance_km:int,elapsed_minutes:int,reported:string,forecast:string>>"
       }
       content {
