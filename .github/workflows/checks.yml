@@ -21,6 +21,7 @@ jobs:
       - run: python -m ruff format --check grid ml services scripts tests
       - run: python -m ruff check grid ml services scripts tests
       - run: python -m pytest -q
+      - run: python -m scripts.route_history --check
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: web/.nvmrc
