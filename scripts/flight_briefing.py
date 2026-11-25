@@ -10,7 +10,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from services.forecast.api import respond
 from services.forecast.briefing import cache_key, choose_with_bedrock, select, variants
-from services.forecast.storage import LocalStore
+from services.forecast.storage import REPLAY_ROOT, LocalStore
 
 MODEL = "amazon.nova-lite-v1:0"
 
@@ -27,7 +27,7 @@ def main():
         help="Store this approved demo briefing in the SkyCalm weather bucket",
     )
     args = p.parse_args()
-    store = LocalStore(args.cache.parent)
+    store = LocalStore(args.cache.parent, REPLAY_ROOT)
     query = {key: getattr(args, key) for key in ("run", "origin", "destination", "departure")}
     route = respond("/api/forecast", query, store)
     opts = variants(route["samples"])

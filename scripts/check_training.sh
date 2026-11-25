@@ -14,8 +14,11 @@ tar -czf "$directory/model/model.tar.gz" -C "$directory/trained" model.txt model
 "${runtime[@]}" --tmpfs /opt/ml/processing/unpacked -v "$directory/dataset:/opt/ml/processing/dataset:ro" \
   -v "$directory/model:/opt/ml/processing/model:ro" -v "$directory/metrics:/opt/ml/processing/metrics" "$image" evaluate
 if [[ -n "${CHECK_GRID_IMAGE:-}" ]]; then
-  "${runtime[@]}" -v "$PWD:/work:ro" -w /work -v "$directory/model/model.tar.gz:/model.tar.gz:ro" \
-    --entrypoint python "$CHECK_GRID_IMAGE" -m scripts.check_model_pickup /model.tar.gz
+  mkdir -p "$directory/preview"
+  "${runtime[@]}" --user "$(id -u):$(id -g)" -v "$PWD:/work:ro" -w /work \
+    -v "$directory/model/model.tar.gz:/model.tar.gz:ro" \
+    -v "$directory/preview:/preview" --entrypoint python "$CHECK_GRID_IMAGE" \
+    -m scripts.check_model_pickup /model.tar.gz --preview-dir /preview
 fi
 python3 -m ml.report "$directory/metrics/evaluation.json" "$directory/report.md"
 printf 'Evaluation and report saved in %s\n' "$directory"

@@ -29,4 +29,10 @@ run "bounded_training_pipeline" {
     condition     = local.gate.Arguments.IfSteps[0].Arguments.ModelApprovalStatus == "Approved" && local.gate.Arguments.ElseSteps[0].Arguments.ModelApprovalStatus == "PendingManualApproval" && aws_sagemaker_model_package_group.classifier.model_package_group_name == "skycalm-turbulence"
     error_message = "The evaluation gate must keep unsupported candidates pending."
   }
+  assert {
+    condition = one([for statement in jsondecode(aws_iam_role_policy.pipeline.policy).Statement :
+      statement.Resource if statement.Effect == "Allow" && try(contains(statement.Action, "sagemaker:CreateModelPackageGroup"), false)
+    ]) == local.group_arn
+    error_message = "The registration step must be able to create its named model group."
+  }
 }
