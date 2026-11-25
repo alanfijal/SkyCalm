@@ -99,7 +99,29 @@ export async function finishSignIn(a: Auth, url: URL) {
     throw Error("Sign-in expired. Try again.");
   const as = server(a),
     client = { client_id: a.clientId, id_token_signed_response_alg: "RS256" };
-  const checked = oauth.validateAuthResponse(as, client, url, tx.state);
+  let checked: URLSearchParams;
+  try {
+    checked = oauth.validateAuthResponse(as, client, url, tx.state);
+  } catch (error) {
+    if (!(error instanceof oauth.AuthorizationResponseError)) throw error;
+    if (
+      error.error_description?.includes("This classroom is invitation only")
+    ) {
+      throw Error(
+        "Sign in with the email address on your classroom invitation.",
+        { cause: error },
+      );
+    }
+    if (error.error === "access_denied") {
+      throw Error(
+        "Sign-in was cancelled or declined. Choose Sign in to try again.",
+        { cause: error },
+      );
+    }
+    throw Error("SkyCalm couldn’t complete sign-in. Please try again.", {
+      cause: error,
+    });
+  }
   const raw = await oauth.authorizationCodeGrantRequest(
     as,
     client,

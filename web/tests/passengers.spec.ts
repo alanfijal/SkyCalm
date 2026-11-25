@@ -12,7 +12,11 @@ const headers = {
 const encode = (v: unknown) =>
   Buffer.from(JSON.stringify(v)).toString("base64url");
 
-async function provider(page: Page, wrongState = false) {
+async function provider(
+  page: Page,
+  result:
+    "success" | "wrong-state" | "invite-denied" | "provider-error" = "success",
+) {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
   });
@@ -34,14 +38,25 @@ async function provider(page: Page, wrongState = false) {
     expect(params.get("code_challenge_method")).toBe("S256");
     nonce = params.get("nonce")!;
     challenge = params.get("code_challenge")!;
+    const reply = new URL(base);
+    reply.searchParams.set(
+      "state",
+      result === "wrong-state" ? "incorrect" : params.get("state")!,
+    );
+    if (result === "invite-denied" || result === "provider-error") {
+      reply.searchParams.set("error", "server_error");
+      reply.searchParams.set(
+        "error_description",
+        result === "invite-denied"
+          ? "PreSignUp failed with error This classroom is invitation only."
+          : "Internal provider diagnostic",
+      );
+    } else {
+      reply.searchParams.set("code", "classroom");
+    }
     await r.fulfill({
       status: 302,
-      headers: {
-        location:
-          base +
-          "/?code=classroom&state=" +
-          (wrongState ? "incorrect" : params.get("state")),
-      },
+      headers: { location: reply.href },
     });
   });
   await page.route(login + "/oauth2/token", async (r) => {
@@ -174,12 +189,28 @@ test("a passenger signs in, saves a flight, exports and deletes the account", as
 test("a mismatched OAuth state is rejected before exchanging a code", async ({
   page,
 }) => {
-  const exchanges = await provider(page, true);
+  const exchanges = await provider(page, "wrong-state");
   await page.goto("/flights");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   expect(exchanges()).toBe(0);
 });
+for (const [result, message] of [
+  [
+    "invite-denied",
+    "Sign in with the email address on your classroom invitation.",
+  ],
+  ["provider-error", "SkyCalm couldn’t complete sign-in. Please try again."],
+] as const) {
+  test(`a ${result} callback explains how to retry`, async ({ page }) => {
+    const exchanges = await provider(page, result);
+    await page.goto("/flights");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveText(message);
+    await expect(page).toHaveURL(base + "/flights");
+    expect(exchanges()).toBe(0);
+  });
+}
 test("an anonymous visitor cannot operate the demo", async ({ page }) => {
   await provider(page);
   await page.goto("/demo");
