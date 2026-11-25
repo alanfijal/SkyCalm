@@ -67,7 +67,7 @@ function airportMarker(
   button.className = `globe-airport globe-airport--${end}`;
   button.setAttribute(
     "aria-label",
-    `Select ${airport.name} (${airport.code}) on the route`,
+    `${airport.code} · ${airport.name} · select on the route`,
   );
   const tag = document.createElement("span");
   tag.textContent = airport.code;
@@ -99,6 +99,7 @@ export default function RouteGlobe({
   const route = useRef(samples);
   const plane = useRef<Marker | null>(null);
   const overlay = useRef<MapLibreOverlay | null>(null);
+  const drawnTheme = useRef(theme);
   const [map, setMap] = useState<Globe | null>(null);
   const [failed, setFailed] = useState(false);
   const current = samples[selected];
@@ -124,6 +125,8 @@ export default function RouteGlobe({
         dragRotate: false,
         pitchWithRotate: false,
         touchPitch: false,
+        fadeDuration: 0,
+        pixelRatio: Math.min(window.devicePixelRatio, 1.5),
         attributionControl: { compact: true },
         canvasContextAttributes: { antialias: true },
       });
@@ -211,7 +214,10 @@ export default function RouteGlobe({
     const ribbons = overlay.current;
     if (!map || !ribbons) return;
     const palette = globePalette();
-    recolorGlobe(map, palette);
+    if (drawnTheme.current !== theme) {
+      recolorGlobe(map, palette);
+      drawnTheme.current = theme;
+    }
     const legs = routeLegs(samples, palette.route);
     const line = new PathLayer<RouteLeg>({
       id: "forecast-route",

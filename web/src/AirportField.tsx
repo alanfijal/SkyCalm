@@ -75,7 +75,11 @@ export default function AirportField({ label, selected, onChange }: Props) {
       <button
         type="button"
         className="airport-trigger"
-        aria-label={label + (selected ? ": " + selected.code : "")}
+        aria-label={
+          (selected ? city(selected) + " " + selected.code : "Select airport") +
+          " · " +
+          label
+        }
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => {

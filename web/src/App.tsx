@@ -17,6 +17,7 @@ import {
   Pencil,
   Sun,
   Globe2,
+  History,
   Info,
   Navigation,
   Plane,
@@ -204,6 +205,15 @@ export default function App() {
             <span>SkyCalm</span>
           </a>
           <div className="nav-actions">
+            <a
+              href="/history"
+              className="guide-button passenger-link"
+              aria-label="Route history"
+              title="Route history"
+            >
+              <History size={16} />
+              <span>Route history</span>
+            </a>
             <a
               href="/flights"
               className="guide-button passenger-link"
