@@ -12,6 +12,7 @@ from services.forecast.schema import LEVELS
 def test_grid_without_approved_model_leaves_weather_on_physics():
     class Registry:
         def list_model_packages(self, **kwargs):
+            assert kwargs["ModelPackageType"] == "Versioned"
             assert kwargs["ModelApprovalStatus"] == "Approved" and kwargs["MaxResults"] == 1
             return {"ModelPackageSummaryList": []}
 

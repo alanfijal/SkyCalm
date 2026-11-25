@@ -23,6 +23,7 @@ class RegistryFixture:
     def list_model_packages(self, **params):
         assert params == {
             "ModelPackageGroupName": GROUP,
+            "ModelPackageType": "Versioned",
             "ModelApprovalStatus": "Approved",
             "SortBy": "CreationTime",
             "SortOrder": "Descending",

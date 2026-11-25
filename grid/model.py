@@ -17,6 +17,7 @@ from services.forecast.storage import checked_tile
 def load_approved(sm, store, group):
     found = sm.list_model_packages(
         ModelPackageGroupName=group,
+        ModelPackageType="Versioned",
         ModelApprovalStatus="Approved",
         SortBy="CreationTime",
         SortOrder="Descending",
