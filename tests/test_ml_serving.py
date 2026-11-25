@@ -62,6 +62,33 @@ def test_briefing_rejects_invented_details_and_keys_each_forecast():
     )
 
 
+def test_briefing_command_uses_bundled_archive_with_empty_cache(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from scripts.flight_briefing import main
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "flight_briefing",
+            "--run",
+            "gfs-20261121-06",
+            "--origin",
+            "EDI",
+            "--destination",
+            "OPO",
+            "--departure",
+            "2026-11-21T14:15:00Z",
+        ],
+    )
+    main()
+    assert "forecast category" in capsys.readouterr().out
+    (cached,) = (tmp_path / ".local/weather/briefings").glob("*.json")
+    assert json.loads(cached.read_bytes()) == {"source": "template", "choices": [0, 0]}
+
+
 def test_sagemaker_tar_accepts_dot_prefix_and_rejects_duplicate_metadata():
     import io
     import tarfile
