@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from functools import lru_cache
@@ -21,6 +22,18 @@ def validate_manifest(manifest: dict, run_id: str) -> dict:
         or [x["lead"] for x in manifest["leads"]] != list(LEADS)
     ):
         raise ValueError("Weather manifest is incompatible or incomplete")
+    if "model" in manifest:
+        from services.forecast.model_tile import SCHEMA
+
+        if (
+            manifest["model"].get("schema") != SCHEMA
+            or not isinstance(manifest["model"].get("version"), int)
+            or not all(
+                re.fullmatch("[0-9a-f]{64}", lead.get("modelSha256", ""))
+                for lead in manifest["leads"]
+            )
+        ):
+            raise ValueError("Prediction tiles or model version are missing")
     return manifest
 
 
@@ -81,6 +94,13 @@ class LocalStore:
 
     def tile(self, run_id: str, lead: int, digest: str) -> bytes:
         return read_tile(self.location(run_id) / tile_name(lead), digest)
+
+    def briefing(self, key):
+        path = self.root / "briefings" / (key + ".json")
+        return json.loads(path.read_bytes()) if path.is_file() else None
+
+    def model_tile(self, run_id, lead, digest):
+        return checked_tile((self.location(run_id) / f"ml-{lead:03}.gz").read_bytes(), digest)
 
     def advance(self, run_id: str) -> None:
         if not self.published_manifest(run_id):

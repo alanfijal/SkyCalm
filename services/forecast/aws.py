@@ -6,7 +6,7 @@ from pathlib import Path
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from services.forecast.schema import SCORER, issue_time, tile_name
 from services.forecast.storage import REPLAY_ROOT, checked_tile, validate_manifest
@@ -90,6 +90,17 @@ class AwsStore:
             data = self.read(f"archive/{SCORER}/{run_id}/{tile_name(lead)}", 300_000)
         return checked_tile(data, digest)
 
+    def briefing(self, key):
+        if os.getenv("SKYCALM_BRIEFINGS") != "enabled":
+            return None
+        try:
+            return json.loads(self.read(f"ml/briefings/{key}.json", 1024))
+        except (BotoCoreError, ClientError):
+            return None
+
+    def model_tile(self, run_id, lead, digest):
+        return checked_tile(self.read(self.prefix(run_id) + digest + ".ml.gz", 150_000), digest)
+
     def advance(self, run_id: str) -> None:
         issue_time(run_id)
         try:
@@ -111,6 +122,10 @@ class AwsStore:
             self.s3.put_object(
                 Bucket=self.bucket, Key=prefix + item["sha256"] + ".bin.gz", Body=raw
             )
+            if "model" in manifest:
+                digest = item["modelSha256"]
+                ml = checked_tile((directory / f"ml-{item['lead']:03}.gz").read_bytes(), digest)
+                self.s3.put_object(Bucket=self.bucket, Key=prefix + digest + ".ml.gz", Body=ml)
         try:
             self.s3.put_object(
                 Bucket=self.bucket,

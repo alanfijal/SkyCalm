@@ -18,8 +18,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install --require-hashes -r requirements-dev.txt
-      - run: python -m ruff format --check grid services scripts tests
-      - run: python -m ruff check grid services scripts tests
+      - run: python -m ruff format --check grid ml services scripts tests
+      - run: python -m ruff check grid ml services scripts tests
       - run: python -m pytest -q
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -59,6 +59,16 @@ jobs:
           persist-credentials: false
       - run: bash scripts/lambda_images.sh build
       - run: python3 scripts/check_lambda_images.py
+  training:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --platform linux/amd64 -f ml/Dockerfile -t skycalm-training:local .
+      - run: docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .
+      - run: CHECK_GRID_IMAGE=skycalm-grid:local bash scripts/check_training.sh
   security:
     runs-on: ubuntu-24.04
     timeout-minutes: 8

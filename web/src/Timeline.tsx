@@ -24,6 +24,10 @@ export default function Timeline({
     detail = `Wind shear ${p.shear?.toFixed(1)} m/s per km · Ellrod index ${p.ti1?.toFixed(1)}`;
   if (p.method === "cape")
     detail = `Surface CAPE ${p.cape?.toLocaleString("en-GB")} J/kg · climb/descent indicator`;
+  if (p.method === "lightgbm") {
+    detail = `Model v${forecast.modelVersion} · ${Math.round((p.probability ?? 0) * 100)}% estimated probability of ${p.category}.`;
+    if (p.driver) detail += ` The strongest contributing factor was ${p.driver}.`;
+  }
   if (p.method === "horizon")
     detail = "This section falls beyond the 36-hour forecast window.";
   if (p.method === "outside")
@@ -39,6 +43,7 @@ export default function Timeline({
         </div>
         <span>{samples.length} sample points</span>
       </div>
+      {forecast.briefing && <p className="route-briefing">{forecast.briefing}</p>}
       <div className="timeline-layout">
         <div className="track-area">
           <div className="track-captions">
