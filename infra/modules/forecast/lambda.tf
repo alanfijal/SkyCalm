@@ -14,8 +14,9 @@ resource "aws_lambda_function" "forecast" {
   timeout       = 15
   environment {
     variables = {
-      SKYCALM_BUCKET = aws_s3_bucket.app["weather"].id
-      SKYCALM_TABLE  = aws_dynamodb_table.runs.name
+      SKYCALM_BRIEFINGS = var.training_image_digest == null ? "disabled" : "enabled"
+      SKYCALM_BUCKET    = aws_s3_bucket.app["weather"].id
+      SKYCALM_TABLE     = aws_dynamodb_table.runs.name
     }
   }
   logging_config {

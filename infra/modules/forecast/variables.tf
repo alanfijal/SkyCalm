@@ -1,3 +1,12 @@
+variable "training_image_digest" {
+  description = "An approved amd64 training image digest enables the on-demand ML pipeline."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.training_image_digest == null ? true : can(regex("^sha256:[a-f0-9]{64}$", var.training_image_digest))
+    error_message = "Use an immutable SageMaker container digest."
+  }
+}
 terraform {
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 6.74" }

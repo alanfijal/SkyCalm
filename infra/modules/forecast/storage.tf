@@ -56,7 +56,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "weather" {
     abort_incomplete_multipart_upload { days_after_initiation = 1 }
   }
   dynamic "rule" {
-    for_each = { "observations/raw/" = 7, "observations/snapshots/" = 7, "query-results/" = 1, "pipeline/" = 7 }
+    for_each = merge({ "observations/raw/" = 7, "observations/snapshots/" = 7, "query-results/" = 1, "pipeline/" = 7 }, var.training_image_digest == null ? {} : { "ml/briefings/" = 7 })
     content {
       id     = "expire-${replace(trimsuffix(rule.key, "/"), "/", "-")}"
       status = "Enabled"
