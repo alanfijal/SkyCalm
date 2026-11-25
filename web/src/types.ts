@@ -123,7 +123,9 @@ function apiOrigin(): Promise<string> {
         const config = await result.json();
         if (typeof config.apiOrigin !== "string")
           throw new Error("Invalid forecast configuration.");
-        return config.apiOrigin;
+        return typeof config.publicApiOrigin === "string"
+          ? config.publicApiOrigin
+          : config.apiOrigin;
       })
       .catch((error) => {
         originRequest = undefined;

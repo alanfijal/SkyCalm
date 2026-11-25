@@ -40,7 +40,13 @@ variable "passenger_settings" {
   })
   default = { google_ready = false, vapid_public = "", classroom_email = "" }
 }
+variable "enable_edge_waf" {
+  description = "Opt in to the costed CloudFront WAF with a signed public-forecast origin."
+  type        = bool
+  default     = false
+}
 module "forecast" {
+  enable_edge_waf       = var.enable_edge_waf
   training_image_digest = var.training_image_digest
   passenger_settings    = var.passenger_settings
   source                = "../../modules/forecast"

@@ -17,6 +17,10 @@ variable "image_digest" { type = string }
 variable "lambda_image_digests" { type = object({ python = string, push = string }) }
 variable "web_directory" { type = string }
 variable "archive_directory" { type = string }
+variable "enable_edge_waf" {
+  type    = bool
+  default = false
+}
 locals {
   lambda_images = { for target, digest in var.lambda_image_digests : target => "${var.account_id}.dkr.ecr.${local.region}.amazonaws.com/skycalm/functions@${digest}" }
   name          = "skycalm-dev"
