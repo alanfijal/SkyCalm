@@ -1,3 +1,4 @@
+import { Skeleton } from "./PageSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Share2 } from "lucide-react";
 import Timeline from "./Timeline";
@@ -332,12 +333,20 @@ export function Journey({
     setBusy(true);
     setCopied(false);
     try {
-      const r = await privateApi<{ token?: string; expiresAt?: number }>(
-        url + "/share",
-        create ? "POST" : "DELETE",
-        { revision: flight.revision },
-      );
-      setLink(r.token ? location.origin + "/shared#" + r.token : "");
+      const r = await privateApi<{
+        token?: string;
+        preview?: string;
+        expiresAt?: number;
+      }>(url + "/share", create ? "POST" : "DELETE", {
+        revision: flight.revision,
+      });
+      const view = r.preview
+        ? new URL(
+            "/family/" + r.preview,
+            (await config()).apiOrigin || location.origin,
+          ).href
+        : location.origin + "/shared";
+      setLink(r.token ? view + "#" + r.token : "");
       setActive(r.expiresAt ?? 0);
     } catch (e) {
       setError((e as Error).message);
@@ -355,7 +364,7 @@ export function Journey({
       </section>
       {error && <p role="alert">{error}</p>}
       {!data ? (
-        <p aria-live="polite">Loading flight details…</p>
+        <Skeleton label="Loading flight details…" />
       ) : (
         <>
           <ForecastView forecast={data.forecast} prefs={prefs} />
@@ -405,7 +414,8 @@ export function Journey({
             </h2>
             <p>
               Anyone with your link can view this flight’s route, times and
-              forecast for up to 24 hours.
+              forecast for up to 24 hours. Messaging apps can preview the route,
+              departure date and peak category.
             </p>
             {active > Date.now() / 1000 && (
               <p>
@@ -532,7 +542,10 @@ export function SharedFlight() {
       <div className="pass-shell">
         <h1>Shared forecast</h1>
         {error ? (
-          <p role="alert">{error}</p>
+          <section className="pass-card">
+            <p role="alert">{error}</p>
+            <a href="/forecast">Explore a flight forecast</a>
+          </section>
         ) : result ? (
           <>
             <section className="pass-card">
@@ -551,7 +564,7 @@ export function SharedFlight() {
             <ForecastView forecast={result.forecast} />
           </>
         ) : (
-          <p>Opening the shared forecast…</p>
+          <Skeleton label="Opening the shared forecast…" />
         )}
       </div>
     </main>

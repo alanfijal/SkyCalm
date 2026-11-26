@@ -15,8 +15,8 @@ def unavailable():
     return RequestError("link_unavailable", "This flight link has expired or was removed.", 404)
 
 
-def signature(grant):
-    message = f"forecast-v1/{grant['selector']}/{grant['revision']}/{grant['until']}"
+def signature(grant, purpose="forecast-v1"):
+    message = f"{purpose}/{grant['selector']}/{grant['revision']}/{grant['until']}"
     return hmac.new(bytes.fromhex(grant["key"]), message.encode(), hashlib.sha256).hexdigest()
 
 
@@ -63,7 +63,11 @@ def set_link(store, flight, now, create):
         alias = {"Delete": pointer}
     store.transact(owner, [{"Update": update}, alias])
     return (
-        {"token": f"{selector}.{signature(grant)}", "expiresAt": expires}
+        {
+            "token": f"{selector}.{signature(grant)}",
+            "preview": f"{selector}.{signature(grant, 'card-v1')}",
+            "expiresAt": expires,
+        }
         if create
         else {"revoked": True}
     )
@@ -120,7 +124,7 @@ def family_forecast(forecast):
     return route
 
 
-def read_link(store, token, now):
+def granted_flight(store, token, now, purpose="forecast-v1"):
     match = TOKEN.fullmatch(token) if isinstance(token, str) else None
     if not match:
         raise unavailable()
@@ -136,10 +140,15 @@ def read_link(store, token, now):
         or grant.get("until", 0) <= now
         or grant.get("revision") != flight.get("revision")
         or flight.get("expiresAt", 0) <= now
-        or not hmac.compare_digest(signature(grant), supplied)
+        or not hmac.compare_digest(signature(grant, purpose), supplied)
         or store.get(owner, "account").get("erasing")
     ):
         raise unavailable()
+    return flight, grant["until"]
+
+
+def read_link(store, token, now):
+    flight, deadline = granted_flight(store, token, now)
     from services.passengers.journey import forecast_for
 
     return {
@@ -147,5 +156,5 @@ def read_link(store, token, now):
             k: flight[k] for k in ("origin", "destination", "departure", "arrival", "watch")
         },
         "forecast": family_forecast(forecast_for(store, flight)),
-        "expiresAt": grant["until"],
+        "expiresAt": deadline,
     }

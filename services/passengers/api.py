@@ -436,11 +436,33 @@ def handler(event, context):
 
         return purge_expired()
     try:
-        result = dispatch(
-            event, PassengerStore(runtime.client("dynamodb"), os.environ["PASSENGERS"])
-        )
+        store = PassengerStore(runtime.client("dynamodb"), os.environ["PASSENGERS"])
+        if event.get("routeKey") == "GET /family/{ticket}":
+            from services.passengers.preview import preview_response
+
+            ticket = (event.get("pathParameters") or {}).get("ticket", "")
+            return preview_response(
+                store,
+                ticket.removesuffix(".png"),
+                ticket.endswith(".png"),
+                int(datetime.now(UTC).timestamp()),
+                os.environ["PUBLIC_SITE"],
+                os.environ["PUBLIC_API"],
+            )
+        result = dispatch(event, store)
         status = 200
     except RequestError as exc:
+        if event.get("routeKey") == "GET /family/{ticket}" and exc.status == 404:
+            return {
+                "statusCode": 404,
+                "headers": {
+                    "content-type": "text/html; charset=utf-8",
+                    "cache-control": "no-store",
+                    "referrer-policy": "no-referrer",
+                    "x-robots-tag": "noindex",
+                },
+                "body": '<!doctype html><html lang="en"><title>Shared forecast · SkyCalm</title><main><h1>Shared forecast</h1><p>This flight link has expired or was removed.</p></main></html>',
+            }
         result, status = {"error": exc.code, "message": str(exc)}, exc.status
     except Exception as exc:
         log.error(

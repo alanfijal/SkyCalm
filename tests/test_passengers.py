@@ -1,4 +1,6 @@
+import base64
 import json
+from io import BytesIO
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 from uuid import uuid4
@@ -6,6 +8,7 @@ from uuid import uuid4
 import boto3
 import pytest
 from moto import mock_aws
+from PIL import Image
 
 from services.forecast.api import RequestError
 from services.passengers import api, worker
@@ -430,7 +433,32 @@ def test_anonymous_family_links_expire_rotate_and_revoke(store):
 
     with pytest.raises(RequestError):
         share(owner=OTHER)
-    token = share()["token"]
+    from services.passengers.preview import preview_response
+
+    def card(ticket, image=False, when=T):
+        return preview_response(
+            store, ticket, image, when, "https://app.example", "https://api.example"
+        )
+
+    grant = share()
+    token, preview = grant["token"], grant["preview"]
+    html = card(preview)
+    assert html["statusCode"] == 200 and "no-store" in html["headers"]["cache-control"]
+    assert (
+        "og:image" in html["body"] and f"https://api.example/family/{preview}.png" in html["body"]
+    )
+    assert token not in html["body"] and OWNER not in html["body"] and "watch" not in html["body"]
+    png = card(preview, True)
+    assert png["isBase64Encoded"] and png["headers"]["content-type"] == "image/png"
+    with Image.open(BytesIO(base64.b64decode(png["body"]))) as picture:
+        assert picture.format == "PNG" and picture.size == (1200, 630)
+    for action in (
+        lambda: visit(preview),
+        lambda: card(token),
+        lambda: card(preview, when=T + 86400),
+    ):
+        with pytest.raises(RequestError, match="expired"):
+            action()
     shared = visit(token)
     assert set(shared) == {"flight", "forecast", "expiresAt"}
     assert set(shared["flight"]) == {"origin", "destination", "departure", "arrival", "watch"}
@@ -440,10 +468,15 @@ def test_anonymous_family_links_expire_rotate_and_revoke(store):
             visit(value)
     with pytest.raises(RequestError, match="expired"):
         visit(token, NOW + timedelta(days=1))
-    new = share()["token"]
+    rotated = share()
+    new = rotated["token"]
+    with pytest.raises(RequestError):
+        card(preview, True)
     with pytest.raises(RequestError):
         visit(token)
     share("DELETE")
+    with pytest.raises(RequestError):
+        card(rotated["preview"])
     with pytest.raises(RequestError):
         visit(new)
     new = share()["token"]
