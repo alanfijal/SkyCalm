@@ -212,8 +212,12 @@ select:focus-visible {
   overflow: hidden;
   min-height: 0;
 }
-#ribbon i {
-  height: 16px;
+#ribbon button {
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   flex: 1;
   background: var(--line);
 }
@@ -235,6 +239,42 @@ select:focus-visible {
   flex-wrap: wrap;
   padding-top: 0.6rem;
   font-size: 0.8rem;
+}
+#legend[hidden] {
+  display: none;
+}
+#legend button,
+#peak button {
+  padding: 0.12rem 0;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+#ribbon button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: -2px;
+}
+#cabin {
+  max-width: min(25rem, 90vw);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  padding: 1.35rem;
+}
+#cabin::backdrop {
+  background: rgb(6 12 22 / 65%);
+}
+#cabin h2 {
+  margin: 0;
+}
+#cabin a {
+  color: var(--accent);
+}
+#cabin form {
+  margin-top: 1rem;
 }
 .smooth {
   color: var(--smooth);

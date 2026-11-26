@@ -62,12 +62,8 @@
           <p id="route-status">
             The updated forecast appears here when the run finishes.
           </p>
-          <div id="ribbon" role="img" aria-label="No updated forecast"></div>
-          <div id="legend" hidden>
-            <span class="smooth">Smooth</span><span class="light">Light</span
-            ><span class="moderate">Moderate</span
-            ><span class="severe">Severe</span>
-          </div>
+          <div id="ribbon" role="group" aria-label="No updated forecast"></div>
+          <div id="legend" hidden></div>
         </section>
       </section>
       <section id="health" hidden>
@@ -109,5 +105,14 @@
         </section>
       </section>
     </main>
+    <dialog id="cabin" aria-labelledby="cabin-title">
+      <h2 id="cabin-title"></h2>
+      <p id="cabin-copy"></p>
+      <p id="seatbelt"></p>
+      <a id="cabin-source" target="_blank" rel="noopener noreferrer"
+        >FAA turbulence guide</a
+      >
+      <form method="dialog"><button autofocus>Close explanation</button></form>
+    </dialog>
   </body>
 </html>
