@@ -333,7 +333,12 @@ test("flight search resumes after sign-in and saves the selected timetable", asy
     .getByRole("button", { name: "Flight number", exact: true })
     .click();
   await page.getByLabel("Flight number", { exact: true }).fill("KL1001");
-  await page.getByLabel("Departure date (local)", { exact: true }).fill(day);
+  // A native date picker can update the displayed value before React sees a change.
+  await page
+    .getByLabel("Departure date (local)", { exact: true })
+    .evaluate((input: HTMLInputElement, value) => {
+      input.value = value;
+    }, day);
   await page.getByRole("button", { name: "Find flight" }).click();
   const card = page.locator(".schedule-card");
   await expect(card).toContainText("Embraer 195");
