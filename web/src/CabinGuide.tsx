@@ -63,7 +63,11 @@ export function LevelButton({
       type="button"
       className="level-link"
       aria-haspopup="dialog"
-      aria-label={label + " · What does this feel like?"}
+      aria-label={
+        typeof children === "object"
+          ? undefined
+          : label + " · What does this feel like?"
+      }
       onClick={(event) => explain(level, event.currentTarget)}
     >
       {marker && dot(level)}

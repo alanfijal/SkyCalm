@@ -140,7 +140,7 @@ export default function Timeline({
         <div className="sample-detail" aria-live={playing ? "off" : "polite"}>
           <div className="detail-heading">
             <LevelButton level={p.category} marker>
-              <strong>{peak}</strong>
+              <strong>{peak}</strong>{" "}
               <small className="level-question">
                 What does this feel like?
               </small>

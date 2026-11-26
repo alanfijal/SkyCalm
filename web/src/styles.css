@@ -229,10 +229,12 @@ h2 {
 .forecast-intro a,
 .history-intro a {
   color: var(--accent);
+  text-decoration: underline;
   text-underline-offset: 0.18em;
 }
 .source-control {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.65rem;
   max-inline-size: 100%;
