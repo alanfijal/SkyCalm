@@ -3,8 +3,9 @@ FROM public.ecr.aws/lambda/python:3.12@sha256:ad2f55fe2cf91a997bc986410cab85a41b
 COPY services/forecast/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir --no-compile --only-binary=:all: --require-hashes \
     --target "${LAMBDA_TASK_ROOT}" -r /tmp/requirements.txt
-COPY --chmod=u=rwX,go=rX services/ ${LAMBDA_TASK_ROOT}/services/
-COPY --chmod=u=rwX,go=rX grid/ ${LAMBDA_TASK_ROOT}/grid/
+COPY services/ ${LAMBDA_TASK_ROOT}/services/
+COPY grid/ ${LAMBDA_TASK_ROOT}/grid/
+RUN chmod 0755 "${LAMBDA_TASK_ROOT}" && chmod -R u=rwX,go=rX "${LAMBDA_TASK_ROOT}/services" "${LAMBDA_TASK_ROOT}/grid"
 CMD ["services.forecast.handler.handler"]
 
 FROM public.ecr.aws/lambda/nodejs:24@sha256:5f161369102f24d3b088ca52e8e83eeee55e701080ee91af858b4cb2f762b6ef AS push
