@@ -103,7 +103,7 @@ resource "aws_s3_object" "site" {
 resource "aws_s3_object" "runtime" {
   bucket        = aws_s3_bucket.app["web"].id
   key           = "config.json"
-  content       = jsonencode({ apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint, publicApiOrigin = var.enable_edge_waf ? "" : aws_apigatewayv2_api.forecast.api_endpoint, auth = { domain = "https://${local.login_prefix}.auth.${local.region}.amazoncognito.com", issuer = "https://${aws_cognito_user_pool.passengers.endpoint}", clientId = aws_cognito_user_pool_client.passengers.id, vapidPublicKey = var.passenger_settings.vapid_public } })
+  content       = jsonencode({ flightLookup = var.enable_flight_lookup, apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint, publicApiOrigin = var.enable_edge_waf ? "" : aws_apigatewayv2_api.forecast.api_endpoint, auth = { domain = "https://${local.login_prefix}.auth.${local.region}.amazoncognito.com", issuer = "https://${aws_cognito_user_pool.passengers.endpoint}", clientId = aws_cognito_user_pool_client.passengers.id, vapidPublicKey = var.passenger_settings.vapid_public } })
   content_type  = "application/json"
   cache_control = "no-store"
 }

@@ -147,6 +147,8 @@ def score(store, flight, job, now):
         "departure": when,
         "run": run,
     }
+    if flight.get("arrivalScheduled") and not replay:
+        query["arrival"] = flight["arrival"]
     # A new model run can cover less than 36 hours ahead of wall time.
     from services.forecast.schema import issue_time
 

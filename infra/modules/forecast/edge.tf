@@ -106,7 +106,7 @@ resource "aws_cloudfront_origin_request_policy" "forecast" {
   headers_config { header_behavior = "none" }
   query_strings_config {
     query_string_behavior = "whitelist"
-    query_strings { items = ["origin", "destination", "departure", "run", "q"] }
+    query_strings { items = ["origin", "destination", "departure", "arrival", "run", "q"] }
   }
 }
 resource "aws_cloudfront_response_headers_policy" "web" {

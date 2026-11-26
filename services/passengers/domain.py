@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from services.forecast.api import RequestError, airports
-from services.forecast.route import route_points
+from services.forecast.route import route_points, scheduled_end
 from services.forecast.schema import CATEGORIES, inside, utc_text
 
 
@@ -53,7 +53,21 @@ def flight_input(body, now):
         raise RequestError("invalid_time", "Choose a departure in the next year.")
     _, points = route_points(*pair, departure)
     arrival = departure + timedelta(minutes=points[-1]["elapsedMinutes"])
+    schedule = {}
+    if body.get("flightNumber"):
+        from services.flights.provider import number
+
+        try:
+            schedule["flightNumber"] = number(body["flightNumber"])
+            if body.get("scheduledArrival"):
+                arrival = scheduled_end(body["scheduledArrival"], departure)
+                schedule["arrivalScheduled"] = True
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise RequestError(
+                "invalid_schedule", "Check the flight number and scheduled arrival."
+            ) from exc
     return dict(
+        **schedule,
         origin=pair[0]["code"],
         destination=pair[1]["code"],
         departure=utc_text(departure),

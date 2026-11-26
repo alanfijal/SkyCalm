@@ -988,7 +988,7 @@ h2 {
     border-block-start: 1px solid var(--border);
   }
 }
-@media (max-width: 22rem) {
+@media (max-width: 25rem) {
   .nav-inner, .nav-actions, .brand {
     gap: 0.25rem;
   }

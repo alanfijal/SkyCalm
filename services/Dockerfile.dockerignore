@@ -9,7 +9,13 @@ services/forecast/local.py
 !services/forecast/data/**
 !services/observations/
 !services/observations/*.py
+!services/flights/
+!services/flights/*.py
+services/flights/local.py
 !services/passengers/
+!services/flights/
+!services/flights/*.py
+services/flights/local.py
 !services/passengers/*.py
 !services/pipeline/
 !services/pipeline/*.py

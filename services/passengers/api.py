@@ -27,6 +27,8 @@ PREF = "skycalm/notifications.write"
 ADMIN = "skycalm/admin"
 FLIGHT_FIELDS = (
     "slot",
+    "flightNumber",
+    "arrivalScheduled",
     "id",
     "revision",
     "origin",
@@ -232,7 +234,7 @@ def dispatch(event, store, clients=runtime.client, now=None):
         else PREF
         if path == "/api/me/preferences"
         else READ
-        if method == "GET"
+        if method == "GET" or (method == "POST" and path == "/api/me/flight-lookup")
         else WRITE
     )
     owner, username = identity(event, scope)
@@ -258,6 +260,21 @@ def dispatch(event, store, clients=runtime.client, now=None):
             raise ValueError
     except (ValueError, TypeError, UnicodeError) as exc:
         raise RequestError("invalid_body", "Expected a JSON object.", 400) from exc
+    if method == "POST" and path == "/api/me/flight-lookup":
+        from services.flights.aws import aws_lookup
+
+        result = aws_lookup(body, owner)
+        log.info(
+            json.dumps(
+                {
+                    "event": "flight.lookup",
+                    "requestId": event.get("requestContext", {}).get("requestId"),
+                    "cached": result.get("cached"),
+                    "matches": len(result.get("flights", [])),
+                }
+            )
+        )
+        return result
     if admin:
         return admin_action(path, method, body, owner, store, now, clients)
     if method == "GET" and path in ("/api/me", "/api/me/export"):
@@ -319,6 +336,10 @@ def dispatch(event, store, clients=runtime.client, now=None):
 
 
 def handler(event, context):
+    if event == {"task": "expire-flight-cache"}:
+        from services.flights.aws import purge_expired
+
+        return purge_expired()
     try:
         result = dispatch(
             event, PassengerStore(runtime.client("dynamodb"), os.environ["PASSENGERS"])

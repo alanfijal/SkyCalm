@@ -1,9 +1,9 @@
 locals {
-  private_routes = {
+  private_routes = merge({
     "GET /api/me"             = "flights.read", "GET /api/me/export" = "flights.read", "DELETE /api/me" = "flights.write",
     "PUT /api/me/preferences" = "notifications.write", "PUT /api/me/flights/{slot}" = "flights.write", "DELETE /api/me/flights/{slot}" = "flights.write",
     "GET /api/admin/health"   = "admin", "GET /api/admin/jobs/{job}" = "admin", "POST /api/admin/actions" = "admin"
-  }
+  }, var.enable_flight_lookup ? { "POST /api/me/flight-lookup" = "flights.read" } : {})
 }
 resource "aws_apigatewayv2_authorizer" "passengers" {
   api_id           = aws_apigatewayv2_api.forecast.id

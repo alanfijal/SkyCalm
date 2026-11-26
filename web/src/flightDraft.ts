@@ -1,5 +1,26 @@
+import type { ScheduledFlight } from "./flightSchedule";
 import type { Forecast } from "./types";
 const key = "skycalm-flight-draft";
+export interface FlightForm {
+  origin: string;
+  destination: string;
+  departure: string;
+  flightNumber?: string;
+  scheduledArrival?: string;
+}
+export function keepFlight(f: ScheduledFlight) {
+  const form: FlightForm = {
+    origin: f.departure.code,
+    destination: f.arrival.code,
+    departure: f.departure.time.utc.slice(0, 16),
+    flightNumber: f.number,
+    ...(f.arrival.time ? { scheduledArrival: f.arrival.time.utc } : {}),
+  };
+  sessionStorage.setItem(
+    key,
+    JSON.stringify({ ...form, until: Date.now() + 600000 }),
+  );
+}
 export function keepRoute(f: Forecast) {
   const date =
     Date.parse(f.departure) > Date.now() ? f.departure.slice(0, 16) : "";
@@ -13,7 +34,7 @@ export function keepRoute(f: Forecast) {
     }),
   );
 }
-export function draft() {
+export function draft(): FlightForm | null {
   try {
     const item = JSON.parse(sessionStorage.getItem(key) ?? "null");
     if (
@@ -27,6 +48,12 @@ export function draft() {
         origin: item.origin as string,
         destination: item.destination as string,
         departure: typeof item.departure === "string" ? item.departure : "",
+        ...(typeof item.flightNumber === "string"
+          ? { flightNumber: item.flightNumber }
+          : {}),
+        ...(typeof item.scheduledArrival === "string"
+          ? { scheduledArrival: item.scheduledArrival }
+          : {}),
       };
   } catch {
     /* The form also works without a saved route. */

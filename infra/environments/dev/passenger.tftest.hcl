@@ -43,3 +43,21 @@ run "passenger_controls" {
     error_message = "Check retention, queue retry timing and the classroom providers."
   }
 }
+
+run "enable_dated_flight_search" {
+  command = plan
+  module { source = "../../modules/forecast" }
+  variables { enable_flight_lookup = true }
+  assert {
+    condition = (
+      aws_dynamodb_table.flight_lookup[0].billing_mode == "PAY_PER_REQUEST" &&
+      aws_dynamodb_table.flight_lookup[0].ttl[0].attribute_name == "expiresAt" &&
+      aws_apigatewayv2_route.passengers["POST /api/me/flight-lookup"].authorization_scopes == toset(["skycalm/flights.read"]) &&
+      aws_apigatewayv2_route.passengers["POST /api/me/flight-lookup"].authorization_type == "JWT" &&
+      aws_lambda_function.passenger["api"].environment[0].variables["FLIGHT_LOOKUP_TABLE"] == aws_dynamodb_table.flight_lookup[0].name &&
+      !contains(keys(aws_lambda_function.passenger["worker"].environment[0].variables), "FLIGHT_LOOKUP_PARAMETER") &&
+      aws_cloudwatch_event_rule.expire_flight_cache[0].schedule_expression == "rate(1 day)"
+    )
+    error_message = "Dated flight searches require passenger identity, an expiring on-demand cache, and a bounded daily cleanup."
+  }
+}

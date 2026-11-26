@@ -2,6 +2,7 @@ import * as oauth from "oauth4webapi";
 
 export interface Settings {
   apiOrigin: string;
+  flightLookup?: boolean;
   auth?: {
     domain: string;
     issuer: string;
@@ -49,7 +50,7 @@ export async function signIn(a: Auth, path: string) {
   const verifier = oauth.generateRandomCodeVerifier(),
     state = oauth.generateRandomState(),
     nonce = oauth.generateRandomNonce();
-  const safePath = ["/demo", "/health"].includes(path) ? path : "/flights";
+  const safePath = ["/", "/demo", "/health"].includes(path) ? path : "/flights";
   const scopes = [
     "openid",
     "email",
@@ -58,7 +59,8 @@ export async function signIn(a: Auth, path: string) {
     "skycalm/flights.write",
     "skycalm/notifications.write",
   ];
-  if (safePath !== "/flights") scopes.push("skycalm/admin");
+  if (safePath === "/demo" || safePath === "/health")
+    scopes.push("skycalm/admin");
   const params = new URLSearchParams({
     client_id: a.clientId,
     response_type: "code",
@@ -144,7 +146,7 @@ export async function finishSignIn(a: Auth, url: URL) {
     admin: Array.isArray(groups) && groups.includes("admins"),
     operator: tx.path === "/demo" || tx.path === "/health",
   };
-  return ["/demo", "/health"].includes(tx.path)
+  return ["/", "/demo", "/health"].includes(tx.path)
     ? tx.path
     : tx.inbox
       ? "/flights?view=inbox"

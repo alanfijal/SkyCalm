@@ -13,13 +13,23 @@ def vector(lat: float, lon: float) -> tuple[float, float, float]:
     return math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat)
 
 
-def route_points(origin: dict, destination: dict, departure: datetime) -> tuple[float, list[dict]]:
+def scheduled_end(value: str, departure: datetime) -> datetime:
+    end = datetime.fromisoformat(value)
+    if end.utcoffset() is None or not timedelta(0) < end - departure <= timedelta(hours=24):
+        raise ValueError("Invalid scheduled arrival.")
+    return end
+
+
+def route_points(
+    origin: dict, destination: dict, departure: datetime, arrival: datetime | None = None
+) -> tuple[float, list[dict]]:
     a, b = vector(origin["lat"], origin["lon"]), vector(destination["lat"], destination["lon"])
     angle = math.acos(max(-1, min(1, sum(x * y for x, y in zip(a, b, strict=True)))))
     distance = angle * EARTH_KM
     if distance < 0.1:
         raise ValueError("Choose two different airports.")
     steps = max(2, math.ceil(distance / 25))
+    duration = (arrival - departure).total_seconds() / 60 if arrival else distance / 800 * 60
     points = []
     for i in range(steps + 1):
         t = i / steps
@@ -32,7 +42,7 @@ def route_points(origin: dict, destination: dict, departure: datetime) -> tuple[
         climb = from_ground + (35000 - from_ground) * km / 150
         descent = to_ground + (35000 - to_ground) * (distance - km) / 150
         altitude = min(35000, climb, descent)
-        minutes = km / 800 * 60
+        minutes = duration * t
         points.append(
             {
                 "lat": round(math.degrees(math.atan2(z, math.hypot(x, y))), 6),
