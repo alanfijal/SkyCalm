@@ -94,12 +94,12 @@ class LocalOperator:
                 manifest = rebuild(job["runId"], grid)
                 update(phase="delivering", gridReadyAt=stamp(), leads=len(manifest["leads"]))
                 route = route_summary(grid, job["runId"])
-                update(phase="ready", route=route, routeAt=stamp())
+            outcome = {"phase": "ready", "route": route, "routeAt": stamp()}
         except Exception as exc:
-            update(phase="failed", reason=type(exc).__name__)
-        finally:
-            with self.lock:
-                self.active = None
+            outcome = {"phase": "failed", "reason": type(exc).__name__}
+        with self.lock:
+            self.jobs[key].update(outcome)
+            self.active = None
 
     def status(self, job_id):
         with self.lock:

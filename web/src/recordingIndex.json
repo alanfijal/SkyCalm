@@ -1,0 +1,116 @@
+[
+  {
+    "id": "kl1929-20261121",
+    "number": "KL1929",
+    "callsign": "KLM27E",
+    "airline": "KLM",
+    "origin": {
+      "code": "AMS",
+      "city": "Amsterdam",
+      "name": "Amsterdam Airport Schiphol"
+    },
+    "destination": {
+      "code": "GVA",
+      "city": "Geneva",
+      "name": "Geneva International Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T06:59:14.440Z",
+    "last": "2026-11-21T07:55:55.980Z"
+  },
+  {
+    "id": "fr1800-20261121",
+    "number": "FR1800",
+    "callsign": "RYR15EV",
+    "airline": "Ryanair",
+    "origin": {
+      "code": "MAN",
+      "city": "Manchester",
+      "name": "Manchester Airport"
+    },
+    "destination": {
+      "code": "TRN",
+      "city": "Turin",
+      "name": "Turin Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T10:22:31.180Z",
+    "last": "2026-11-21T11:55:54.390Z"
+  },
+  {
+    "id": "kl1139-20261121",
+    "number": "KL1139",
+    "callsign": "KLM63W",
+    "airline": "KLM",
+    "origin": {
+      "code": "AMS",
+      "city": "Amsterdam",
+      "name": "Amsterdam Airport Schiphol"
+    },
+    "destination": {
+      "code": "DUB",
+      "city": "Dublin",
+      "name": "Dublin Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T11:23:38.630Z",
+    "last": "2026-11-21T12:38:25.700Z"
+  },
+  {
+    "id": "fr1801-20261121",
+    "number": "FR1801",
+    "callsign": "RYR2XK",
+    "airline": "Ryanair",
+    "origin": {
+      "code": "TRN",
+      "city": "Turin",
+      "name": "Turin Airport"
+    },
+    "destination": {
+      "code": "MAN",
+      "city": "Manchester",
+      "name": "Manchester Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T13:10:28.250Z",
+    "last": "2026-11-21T15:06:24.670Z"
+  },
+  {
+    "id": "az1704-20261121",
+    "number": "AZ1704",
+    "callsign": "ITY1704",
+    "airline": "ITA Airways",
+    "origin": {
+      "code": "CTA",
+      "city": "Catania",
+      "name": "Catania-Fontanarossa Airport"
+    },
+    "destination": {
+      "code": "LIN",
+      "city": "Milan Linate",
+      "name": "Milano Linate Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T14:54:25.800Z",
+    "last": "2026-11-21T16:43:48.210Z"
+  },
+  {
+    "id": "kl1521-20261121",
+    "number": "KL1521",
+    "callsign": "KLM71Z",
+    "airline": "KLM",
+    "origin": {
+      "code": "AMS",
+      "city": "Amsterdam",
+      "name": "Amsterdam Airport Schiphol"
+    },
+    "destination": {
+      "code": "BCN",
+      "city": "Barcelona",
+      "name": "Josep Tarradellas Barcelona-El Prat Airport"
+    },
+    "localDate": "2026-11-21",
+    "first": "2026-11-21T19:58:59.320Z",
+    "last": "2026-11-21T21:49:05.420Z"
+  }
+]

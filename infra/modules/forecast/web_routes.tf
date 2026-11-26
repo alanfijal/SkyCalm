@@ -6,7 +6,7 @@ resource "aws_cloudfront_function" "passenger_pages" {
   code    = <<-JS
     function handler(event) {
       var request = event.request;
-      if (["/flights","/demo","/health","/history","/replay"].indexOf(request.uri) >= 0) request.uri="/index.html";
+      if (["/flights","/demo","/health","/history","/replay","/recordings"].indexOf(request.uri) >= 0) request.uri="/index.html";
       return request;
     }
   JS

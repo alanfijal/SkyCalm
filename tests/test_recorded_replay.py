@@ -6,7 +6,17 @@ from itertools import pairwise
 
 import pytest
 
-from scripts.recorded_replay import FORECAST, TRACK, build_replay, extract_track, recorded_points
+from scripts.recorded_replay import (
+    DATA,
+    FLIGHTS,
+    FORECAST,
+    INDEX,
+    TRACK,
+    build_replay,
+    extract_track,
+    index_entry,
+    recorded_points,
+)
 
 
 def test_replay_pairs_real_observations_with_the_weather_at_the_time():
@@ -60,3 +70,19 @@ def test_wrong_source_is_rejected_before_export(tmp_path):
     with pytest.raises(ValueError, match="checksum"):
         extract_track(b"another aircraft or release", path)
     assert not path.exists()
+
+
+@pytest.mark.parametrize("leg", FLIGHTS, ids=lambda leg: leg["number"])
+def test_search_index_opens_the_exact_dated_recording(leg):
+    track = DATA / (leg["id"] + ".csv")
+    replay = build_replay(track, leg)
+    assert replay == json.loads((DATA / (leg["id"] + ".json")).read_text())
+    entry = index_entry(leg, replay)
+    assert [r for r in json.loads(INDEX.read_text()) if r["id"] == leg["id"]] == [entry]
+    assert (entry["origin"]["code"], entry["destination"]["code"]) == (
+        leg["origin"],
+        leg["destination"],
+    )
+    assert entry["localDate"] == "2026-11-21"
+    assert 0 < replay["maxGapSeconds"] <= 30
+    assert replay["positions"] == len(recorded_points(track)) == leg["positions"]

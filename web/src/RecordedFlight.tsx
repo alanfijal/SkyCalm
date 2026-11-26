@@ -1,14 +1,23 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Pause, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import RouteGlobe from "./RouteGlobe";
 import Timeline from "./Timeline";
 import { forecastLevels, LevelButton } from "./CabinGuide";
-import { clock, duration, fetchWithRetry, type Forecast } from "./types";
+import {
+  clock,
+  dateLabel,
+  duration,
+  fetchWithRetry,
+  type Forecast,
+} from "./types";
 import type { WeatherItem } from "./observations";
-import "./recordedFlight.css";
+import {
+  defaultRecordingId,
+  recordingById,
+  type RecordingEntry,
+} from "./recordings";
+import { PlaybackControls, useRoutePlayback } from "./RoutePlayback";
 
-const base = "/data/recorded-flight/az1704-20261121";
-const speed = 120;
 const noObservations: WeatherItem[] = [];
 
 interface Recording extends Forecast {
@@ -19,47 +28,33 @@ interface Recording extends Forecast {
   licenseUrl: string;
 }
 
-function Player({ flight }: { flight: Recording }) {
+function Player({
+  flight,
+  entry,
+}: {
+  flight: Recording;
+  entry: RecordingEntry;
+}) {
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
   const samples = flight.samples;
   const current = samples[index];
-  const last = index === samples.length - 1;
+  const playback = useRoutePlayback(samples, index, setIndex);
   const theme =
     document.documentElement.dataset.theme === "light" ? "light" : "dark";
   const date = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "long",
     timeZone: "UTC",
-  }).format(new Date(flight.departure));
-
-  useEffect(() => {
-    if (!playing || last) return;
-    const delay =
-      (Date.parse(samples[index + 1].at) - Date.parse(samples[index].at)) /
-      speed;
-    const timer = window.setTimeout(() => {
-      setIndex(index + 1);
-      if (index + 1 === samples.length - 1) setPlaying(false);
-    }, delay);
-    return () => window.clearTimeout(timer);
-  }, [index, last, playing, samples]);
-
-  function select(i: number) {
-    setPlaying(false);
-    setIndex(i);
-  }
-  function togglePlay() {
-    if (last) setIndex(0);
-    setPlaying(!playing);
-  }
+  }).format(new Date(entry.localDate + "T12:00:00Z"));
 
   return (
     <>
       <div className="page-title">
         <div>
-          <h1>Catania to Milan Linate</h1>
+          <h1>
+            {entry.origin.city} to {entry.destination.city}
+          </h1>
           <p>
-            ITA Airways {flight.flightNumber} · {date} · Recorded flight
+            {entry.airline} {flight.flightNumber} · {date} · Recorded flight
           </p>
         </div>
       </div>
@@ -81,7 +76,7 @@ function Player({ flight }: { flight: Recording }) {
           origin={flight.origin}
           destination={flight.destination}
           selected={index}
-          onSelect={select}
+          onSelect={playback.select}
           observations={noObservations}
         />
         <div className="legend" aria-label="Forecast intensity legend">
@@ -90,41 +85,24 @@ function Player({ flight }: { flight: Recording }) {
             <LevelButton key={c} level={c} marker />
           ))}
         </div>
-        <div className="recording-controls">
-          <button type="button" onClick={togglePlay}>
-            {playing ? (
-              <Pause size={16} />
-            ) : last ? (
-              <RotateCcw size={16} />
-            ) : (
-              <Play size={16} />
-            )}
-            {playing ? "Pause replay" : last ? "Play again" : "Play replay"}
-          </button>
-          <span className="recording-speed">
-            <span className="sr-only">Playback speed </span>
-            {speed}×
-          </span>
-          <time dateTime={current.at}>{clock(current.at)} UTC</time>
-          <span>{current.altitudeFt.toLocaleString("en-GB")} ft</span>
-        </div>
+        <PlaybackControls playback={playback} current={current} recorded />
       </section>
       <Timeline
         forecast={flight}
         index={index}
-        onSelect={select}
+        onSelect={playback.select}
         observations={null}
-        playing={playing}
+        playing={playback.playing}
       />
       <footer className="recording-sources">
         <p>
           <a href={flight.sourceUrl}>ADSB.lol</a> recorded {flight.positions}{" "}
           positions and barometric altitudes for {flight.callsign}. Colours show
-          the NOAA GFS turbulence forecast issued at {clock(flight.run.issued)}{" "}
-          UTC that day.
+          the NOAA GFS turbulence forecast issued on{" "}
+          {dateLabel(flight.run.issued)} at {clock(flight.run.issued)} UTC.
         </p>
         <p>
-          <a href={base + ".csv"} download>
+          <a href={"/data/recorded-flight/" + entry.id + ".csv"} download>
             Download recorded positions (CSV)
           </a>
           {" · "}
@@ -136,40 +114,56 @@ function Player({ flight }: { flight: Recording }) {
   );
 }
 
-export default function RecordedFlight() {
+export default function RecordedFlight({ id }: { id: string | null }) {
+  const entry = recordingById(id ?? defaultRecordingId);
   const [flight, setFlight] = useState<Recording | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (!entry) return;
     const controller = new AbortController();
-    fetchWithRetry(base + ".json", 8000, controller.signal)
+    fetchWithRetry(
+      "/data/recorded-flight/" + entry.id + ".json",
+      8000,
+      controller.signal,
+    )
       .then(async (response) => {
         if (!response.ok) throw Error("Recording unavailable");
         const data: Recording = await response.json();
-        if (!data.samples?.length) throw Error("Recording has no positions");
+        if (
+          !data.samples?.length ||
+          data.callsign !== entry.callsign ||
+          data.departure !== entry.first
+        )
+          throw Error("Recording does not match this flight");
         if (!controller.signal.aborted) setFlight(data);
       })
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, entry]);
   return (
     <>
       <header className="topbar">
         <div className="nav-inner">
-          <a href="/" className="brand">
+          <a href="/" className="brand" aria-label="SkyCalm flight forecast">
             <img src="/skycalm.svg" width="32" height="32" alt="" />
             SkyCalm
           </a>
-          <a href="/" className="guide-button">
-            <ArrowLeft size={16} /> Flight forecast
+          <a href="/recordings" className="guide-button">
+            <ArrowLeft size={16} /> Recorded flights
           </a>
         </div>
       </header>
       <main className="shell recording">
-        {flight ? (
-          <Player flight={flight} />
+        {!entry ? (
+          <div className="empty-map" role="alert">
+            <h1>Recording not found</h1>
+            <a href="/recordings">Search recorded flights</a>
+          </div>
+        ) : flight ? (
+          <Player flight={flight} entry={entry} />
         ) : failed ? (
           <div className="empty-map" role="alert">
             <h1>Recording unavailable</h1>

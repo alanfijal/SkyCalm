@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("a schedule on the selected replay uses the actual departure and arrival", async ({
+test("a schedule finds archived weather and uses the actual departure and arrival", async ({
   page,
 }) => {
   await page.route("**/config.json", (r) =>
@@ -35,7 +35,7 @@ test("a schedule on the selected replay uses the actual departure and arrival", 
     }),
   );
   await page.goto("/?demo=lookup");
-  await page.locator("select").first().selectOption("gfs-20261124-12");
+  await page.getByLabel("Weather source").selectOption("gfs-20261121-06");
   await page
     .getByRole("button", { name: "Flight number", exact: true })
     .click();
@@ -68,6 +68,10 @@ test("a schedule on the selected replay uses the actual departure and arrival", 
   await page.getByRole("button", { name: "View replay forecast" }).click();
   const payload = await (await routed).json();
   expect(payload.durationMinutes).toBe(80);
+  expect(payload.run.runId).toBe("gfs-20261124-12");
+  await expect(page.getByLabel("Weather source")).toHaveValue(
+    "gfs-20261124-12",
+  );
   await expect(page.locator(".route-codes")).toContainText("LHR");
   await expect(
     page.getByText(/SK999 · Estimated great-circle route/),

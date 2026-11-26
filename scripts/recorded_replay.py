@@ -1,4 +1,4 @@
-"""Rebuild the AZ1704 passenger replay from its open track and archived weather."""
+"""Rebuild the passenger recordings and their search index from ADS-B and archived weather."""
 
 import argparse
 import csv
@@ -9,6 +9,7 @@ from bisect import bisect_left
 from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from scripts.route_history import distance_km
 from services.forecast.api import airports, descriptor
@@ -17,21 +18,23 @@ from services.forecast.product import sample, unpack
 from services.forecast.schema import CATEGORIES, issue_time
 from services.forecast.storage import REPLAY_ROOT, LocalStore
 
-DATA = Path(__file__).resolve().parents[1] / "web/public/data/recorded-flight"
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "web/public/data/recorded-flight"
+INDEX = ROOT / "web/src/recordingIndex.json"
+SOURCES = json.loads(Path(__file__).with_name("recorded_sources.json").read_text())
+FLIGHTS = SOURCES["flights"]
+ORIGINAL = next(f for f in FLIGHTS if f["id"] == "az1704-20261121")
 TRACK = DATA / "az1704-20261121.csv"
 FORECAST = DATA / "az1704-20261121.json"
-RELEASE = (
-    "https://github.com/adsblol/globe_history_2026/releases/tag/v2026.11.21-planes-readsb-prod-0"
-)
-MEMBER_SHA256 = "f612a10937d485e0502e5176bb1aede6ed875e9672899da399942d868ce7833f"
-RUN = "gfs-20261121-06"
-CALLSIGN = "ITY1704"
+CITY_LABELS = {"LIN": "Milan Linate", "TRN": "Turin", "MAN": "Manchester"}
 
 
-def extract_track(member: bytes, output: Path) -> None:
-    if hashlib.sha256(member).hexdigest() != MEMBER_SHA256:
+def extract_track(member: bytes, output: Path, flight: dict = ORIGINAL) -> None:
+    if hashlib.sha256(member).hexdigest() != SOURCES["members"][flight["member"]]["sha256"]:
         raise ValueError("The aircraft-day archive member does not match the pinned checksum.")
     aircraft = json.loads(gzip.decompress(member))
+    if aircraft["icao"] != flight["member"]:
+        raise ValueError("Unexpected aircraft identity in the archive.")
     callsign = ""
     rows = []
     # readsb repeats identity intermittently. Only take observed airborne ADS-B
@@ -39,16 +42,21 @@ def extract_track(member: bytes, output: Path) -> None:
     for point in aircraft["trace"]:
         callsign = (point[8] or {}).get("flight", callsign).strip()
         if (
-            callsign != CALLSIGN
+            callsign != flight["callsign"]
             or point[9] != "adsb_icao"
             or point[6] & 9
             or not isinstance(point[3], (int, float))
         ):
             continue
         when = datetime.fromtimestamp(aircraft["timestamp"] + point[0], UTC)
-        rows.append((when.isoformat(timespec="milliseconds").replace("+00:00", "Z"), *point[1:4]))
-    if len(rows) != 750:
-        raise ValueError("Unexpected number of recorded positions for ITY1704.")
+        stamp = when.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        if flight["first"] <= stamp <= flight["last"]:
+            rows.append((stamp, *point[1:4]))
+    if len(rows) != flight["positions"] or (rows[0][0], rows[-1][0]) != (
+        flight["first"],
+        flight["last"],
+    ):
+        raise ValueError(f"Unexpected observations for {flight['callsign']}.")
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="") as file:
         writer = csv.writer(file, lineterminator="\n")
@@ -82,9 +90,9 @@ def recorded_points(path: Path) -> list[dict]:
     return points
 
 
-def build_replay(path: Path) -> dict:
+def build_replay(path: Path, flight: dict = ORIGINAL) -> dict:
     points = recorded_points(path)
-    origin, destination = airports()["CTA"], airports()["LIN"]
+    origin, destination = airports()[flight["origin"]], airports()[flight["destination"]]
     for stop, point in ((origin, points[0]), (destination, points[-1])):
         if distance_km(stop["lat"], stop["lon"], point["lat"], point["lon"]) > 5:
             raise ValueError("Recorded endpoint is too far from the named airport.")
@@ -98,9 +106,12 @@ def build_replay(path: Path) -> dict:
     cruise_floor = max(p["altitudeFt"] for p in points) - 1000
     cruise = [i for i, p in enumerate(points) if p["altitudeFt"] >= cruise_floor]
     store = LocalStore(REPLAY_ROOT, REPLAY_ROOT)
-    manifest = store.manifest(RUN)
-    issued = issue_time(RUN)
-    cubes = {x["lead"]: unpack(store.tile(RUN, x["lead"], x["sha256"])) for x in manifest["leads"]}
+    run = flight["run"]
+    manifest = store.manifest(run)
+    issued = issue_time(run)
+    if start < issued or points[-1]["time"] > datetime.fromisoformat(manifest["validUntil"]):
+        raise ValueError("Weather does not cover the recorded flight.")
+    cubes = {x["lead"]: unpack(store.tile(run, x["lead"], x["sha256"])) for x in manifest["leads"]}
     samples = []
     for i in sorted(indices):
         p = points[i]
@@ -118,9 +129,10 @@ def build_replay(path: Path) -> dict:
         samples.append(pt | sample(cubes, hours, pt))
     categories = [p["category"] for p in samples if p["category"] in CATEGORIES]
     return {
-        "flightNumber": "AZ1704",
-        "callsign": CALLSIGN,
-        "sourceUrl": RELEASE,
+        "flightNumber": flight["number"],
+        "callsign": flight["callsign"],
+        "sourceUrl": "https://github.com/adsblol/globe_history_2026/releases/tag/"
+        + SOURCES["members"][flight["member"]]["tag"],
         "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
         "positions": len(points),
         "maxGapSeconds": round(max(b - a for a, b in pairwise(seconds)), 2),
@@ -138,6 +150,33 @@ def build_replay(path: Path) -> dict:
     }
 
 
+def index_entry(flight: dict, replay: dict) -> dict:
+    def airport(stop: dict) -> dict:
+        return {
+            "code": stop["code"],
+            "city": CITY_LABELS.get(stop["code"], stop["city"]),
+            "name": stop["name"],
+        }
+
+    first, last = replay["samples"][0]["at"], replay["samples"][-1]["at"]
+    if (first, last, replay["positions"]) != (flight["first"], flight["last"], flight["positions"]):
+        raise ValueError(f"Track does not match the dated leg {flight['id']}.")
+    return {
+        "id": flight["id"],
+        "number": flight["number"],
+        "callsign": flight["callsign"],
+        "airline": flight["airline"],
+        "origin": airport(replay["origin"]),
+        "destination": airport(replay["destination"]),
+        "localDate": datetime.fromisoformat(first)
+        .astimezone(ZoneInfo(flight["timezone"]))
+        .date()
+        .isoformat(),
+        "first": first,
+        "last": last,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--import-member", type=Path, help="Extract the pinned gzip archive member")
@@ -148,13 +187,35 @@ def main():
     if args.import_member:
         if args.check:
             parser.error("Use --import-member and --check in separate runs.")
-        extract_track(args.import_member.read_bytes(), TRACK)
-    data = json.dumps(build_replay(TRACK), ensure_ascii=False, separators=(",", ":")) + "\n"
-    if args.check:
-        if data != FORECAST.read_text():
-            raise SystemExit("Recorded replay differs from its track and weather archive.")
-    else:
-        FORECAST.write_text(data)
+        member = args.import_member.read_bytes()
+        digest = hashlib.sha256(member).hexdigest()
+        matches = [f for f in FLIGHTS if SOURCES["members"][f["member"]]["sha256"] == digest]
+        if not matches:
+            parser.error("Unknown archive member checksum.")
+        for flight in matches:
+            extract_track(member, DATA / (flight["id"] + ".csv"), flight)
+
+    def write(path: Path, body: str) -> None:
+        if args.check:
+            if body != path.read_text():
+                raise SystemExit(f"{path.name} differs from its archived source.")
+        else:
+            path.write_text(body)
+
+    index = []
+    for flight in FLIGHTS:
+        replay = build_replay(DATA / (flight["id"] + ".csv"), flight)
+        index.append(index_entry(flight, replay))
+        write(
+            DATA / (flight["id"] + ".json"),
+            json.dumps(replay, ensure_ascii=False, separators=(",", ":")) + "\n",
+        )
+    if len({f["id"] for f in index}) != len(index):
+        raise ValueError("Duplicate recording id.")
+    write(
+        INDEX,
+        json.dumps(sorted(index, key=lambda f: f["first"]), ensure_ascii=False, indent=2) + "\n",
+    )
 
 
 if __name__ == "__main__":

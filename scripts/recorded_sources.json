@@ -1,0 +1,54 @@
+{
+  "members": {
+    "4cad5e": {
+      "tag": "v2026.11.21-planes-readsb-prod-0", "part": "ab", "range": [272510976, 272607725],
+      "sha256": "f612a10937d485e0502e5176bb1aede6ed875e9672899da399942d868ce7833f"
+    },
+    "48415e": {
+      "tag": "v2026.11.21-planes-readsb-prod-0", "part": "ab", "range": [270580736, 270735034],
+      "sha256": "fb89d4263617d3a4c5f15bf3ca7193aeca79c10d4d8ceb65e4edc85f694dc25b"
+    },
+    "4d225e": {
+      "tag": "v2026.11.21-planes-readsb-prod-0", "part": "ab", "range": [268737024, 268835498],
+      "sha256": "e172b645ba493119a18a14ee59cc3f90632e1f546c93377c81e1adbb24dc7eea"
+    }
+  },
+  "flights": [
+    {
+      "id": "az1704-20261121", "number": "AZ1704", "callsign": "ITY1704", "airline": "ITA Airways", "member": "4cad5e",
+      "origin": "CTA", "destination": "LIN", "timezone": "Europe/Rome", "run": "gfs-20261121-06",
+      "first": "2026-11-21T14:54:25.800Z", "last": "2026-11-21T16:43:48.210Z", "positions": 750,
+      "schedule": "https://www.ita-airways.com/lhg/it/en/o-d/cy-cy/catania-sicily-milan"
+    },
+    {
+      "id": "kl1929-20261121", "number": "KL1929", "callsign": "KLM27E", "airline": "KLM", "member": "48415e",
+      "origin": "AMS", "destination": "GVA", "timezone": "Europe/Amsterdam", "run": "gfs-20261121-06",
+      "first": "2026-11-21T06:59:14.440Z", "last": "2026-11-21T07:55:55.980Z", "positions": 646,
+      "schedule": "https://www.schiphol.nl/en/departures/KL1929/"
+    },
+    {
+      "id": "kl1139-20261121", "number": "KL1139", "callsign": "KLM63W", "airline": "KLM", "member": "48415e",
+      "origin": "AMS", "destination": "DUB", "timezone": "Europe/Amsterdam", "run": "gfs-20261121-06",
+      "first": "2026-11-21T11:23:38.630Z", "last": "2026-11-21T12:38:25.700Z", "positions": 690,
+      "schedule": "https://www.schiphol.nl/en/departures/KL1139/"
+    },
+    {
+      "id": "kl1521-20261121", "number": "KL1521", "callsign": "KLM71Z", "airline": "KLM", "member": "48415e",
+      "origin": "AMS", "destination": "BCN", "timezone": "Europe/Amsterdam", "run": "gfs-20261121-06",
+      "first": "2026-11-21T19:58:59.320Z", "last": "2026-11-21T21:49:05.420Z", "positions": 803,
+      "schedule": "https://www.schiphol.nl/en/departures/KL1521/"
+    },
+    {
+      "id": "fr1800-20261121", "number": "FR1800", "callsign": "RYR15EV", "airline": "Ryanair", "member": "4d225e",
+      "origin": "MAN", "destination": "TRN", "timezone": "Europe/London", "run": "gfs-20261121-06",
+      "first": "2026-11-21T10:22:31.180Z", "last": "2026-11-21T11:55:54.390Z", "positions": 783,
+      "schedule": "https://www.aeroportoditorino.it/en/tofly/flights/timetable"
+    },
+    {
+      "id": "fr1801-20261121", "number": "FR1801", "callsign": "RYR2XK", "airline": "Ryanair", "member": "4d225e",
+      "origin": "TRN", "destination": "MAN", "timezone": "Europe/Rome", "run": "gfs-20261121-06",
+      "first": "2026-11-21T13:10:28.250Z", "last": "2026-11-21T15:06:24.670Z", "positions": 829,
+      "schedule": "https://www.aeroportoditorino.it/en/tofly/flights/timetable"
+    }
+  ]
+}
