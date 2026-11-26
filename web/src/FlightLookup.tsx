@@ -202,7 +202,12 @@ export default function FlightLookup({
           })}
           <p className="schedule-source">
             Schedules from{" "}
-            <a href="https://aerodatabox.com/" target="_blank" rel="noreferrer">
+            <a
+              href="https://aerodatabox.com/"
+              target="_blank"
+              rel="noopener"
+              referrerPolicy="strict-origin"
+            >
               AeroDataBox
             </a>
           </p>
