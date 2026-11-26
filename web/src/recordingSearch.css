@@ -76,7 +76,7 @@
 }
 .recording-results a > svg {
   flex: none;
-  color: var(--accent);
+  color: var(--link-color);
 }
 .recording-results small,
 .recording-count {

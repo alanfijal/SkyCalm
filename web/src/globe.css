@@ -41,7 +41,7 @@
 }
 .route-globe__controls button:hover {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent);
+  color: var(--link-color);
 }
 .route-globe__controls button:disabled {
   opacity: 0.55;

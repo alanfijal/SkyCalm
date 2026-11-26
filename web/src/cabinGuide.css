@@ -12,7 +12,7 @@
   cursor: pointer;
 }
 .level-link:hover {
-  color: var(--accent);
+  color: var(--link-color);
   text-decoration-style: solid;
 }
 .level-link:focus-visible {
@@ -28,6 +28,24 @@
 }
 .level-link .level-dot {
   margin-inline-end: 0.4rem;
+}
+.level-dot[data-level="light"] {
+  border-radius: 0.05rem;
+  transform: rotate(45deg) scale(0.82);
+}
+.level-dot[data-level="moderate"] {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.level-dot[data-level="severe"] {
+  border-radius: 0.05rem;
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+.level-dot:is([data-level="unavailable"], [data-level="unreported"]) {
+  height: 3px;
+  vertical-align: middle;
+  border-radius: 1px;
 }
 .level-question {
   margin-inline-start: 0.5rem;
@@ -91,7 +109,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  color: var(--accent);
+  color: var(--link-color);
   font-size: 0.84rem;
 }
 .cabin-guide-section dl {

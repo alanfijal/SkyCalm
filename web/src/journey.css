@@ -89,7 +89,7 @@
 .history-plot {
   display: block;
   width: 100%;
-  color: var(--accent);
+  color: var(--link-color);
   margin: 0.7rem 0;
 }
 .altitude-profile {

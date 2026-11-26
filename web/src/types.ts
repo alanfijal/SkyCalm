@@ -49,6 +49,7 @@ export interface Forecast {
   durationMinutes: number;
   peak: Category;
   samples: Sample[];
+  wind250?: string[];
   altitudeBands?: Record<string, Category[]>;
 }
 export const city = (a: Airport) => a.city || a.name;

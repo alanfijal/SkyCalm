@@ -1,6 +1,7 @@
 """Serve built public assets and the shared forecast API on loopback."""
 
 import argparse
+import gzip
 import json
 import logging
 import mimetypes
@@ -17,11 +18,31 @@ from services.forecast.storage import REPLAY_ROOT, LocalStore
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def accepts_gzip(header: str) -> bool:
+    for item in header.lower().split(","):
+        encoding, _, parameters = item.strip().partition(";")
+        if encoding.strip() == "gzip":
+            try:
+                return float(parameters.strip().removeprefix("q=") or "1") > 0
+            except ValueError:
+                return False
+    return False
+
+
 def make_handler(store: LocalStore, public: Path, lookup_dir: Path = ROOT / ".local"):
     ledger = LocalLedger(lookup_dir)
 
     class Handler(BaseHTTPRequestHandler):
         def send(self, status: int, headers: dict, body: bytes) -> None:
+            kind = next((v for k, v in headers.items() if k.lower() == "content-type"), "")
+            compressible = kind.startswith("text/") or any(
+                t in kind for t in ("javascript", "json", "svg+xml")
+            )
+            if self.command == "GET" and compressible and len(body) >= 1024:
+                headers = {**headers, "Vary": "Accept-Encoding"}
+                if accepts_gzip(self.headers.get("Accept-Encoding", "")):
+                    body = gzip.compress(body, compresslevel=5, mtime=0)
+                    headers["Content-Encoding"] = "gzip"
             self.send_response(status)
             for key, value in headers.items():
                 self.send_header(key, value)
@@ -82,6 +103,7 @@ def make_handler(store: LocalStore, public: Path, lookup_dir: Path = ROOT / ".lo
                 in (
                     "/",
                     "/flights",
+                    "/forecast",
                     "/shared",
                     "/demo",
                     "/health",

@@ -41,7 +41,20 @@
   line-height: 1.6;
 }
 .recording-sources a {
-  color: var(--accent);
+  color: var(--link-color);
   text-decoration: underline;
   text-underline-offset: 0.18em;
+}
+.topbar .replay-nav .guide-button {
+  inline-size: auto;
+  padding-inline: 0.65rem;
+  white-space: nowrap;
+}
+@media (max-width: 23rem) {
+  .topbar .replay-nav .guide-button {
+    padding-inline: 0.4rem;
+  }
+  .replay-nav svg {
+    display: none;
+  }
 }

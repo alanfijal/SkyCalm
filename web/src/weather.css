@@ -84,7 +84,7 @@
 .layer-status button {
   width: fit-content;
   background: transparent;
-  color: var(--accent);
+  color: var(--link-color);
   cursor: pointer;
 }
 .segment-weather {

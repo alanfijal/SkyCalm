@@ -30,7 +30,7 @@ export default function RecordingSearch() {
             <img src="/skycalm.svg" width="32" height="32" alt="" />
             SkyCalm
           </a>
-          <a href="/" className="guide-button">
+          <a href="/forecast" className="guide-button">
             <ArrowLeft size={16} /> Flight forecast
           </a>
         </div>

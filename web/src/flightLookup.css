@@ -20,7 +20,7 @@
 }
 .lookup-modes button[aria-pressed="true"] {
   background: var(--surface-raised);
-  color: var(--accent);
+  color: var(--link-color);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 .flight-lookup label {
@@ -56,7 +56,7 @@
   color: var(--text-secondary);
 }
 .flight-lookup [role="alert"] {
-  color: var(--turb-moderate);
+  color: var(--text);
 }
 .schedule-card {
   padding: 0.85rem;
@@ -90,7 +90,7 @@
 .schedule-card a,
 .schedule-card button,
 .schedule-source a {
-  color: var(--accent);
+  color: var(--link-color);
 }
 .schedule-card button {
   background: var(--surface-raised);

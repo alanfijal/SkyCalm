@@ -1,0 +1,201 @@
+.map-poster {
+  height: var(--map-height);
+  position: relative;
+  display: grid;
+  place-items: stretch;
+  overflow: hidden;
+  background: var(--map-water);
+}
+.activate-globe {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  position: absolute;
+  right: 0.75rem;
+  bottom: 2.75rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  padding: 0.55rem 0.8rem;
+  min-height: 44px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
+  box-shadow: var(--elevation-panel);
+}
+.sheet-host {
+  position: relative;
+  min-height: 3rem;
+  margin-top: -1rem;
+  z-index: 4;
+}
+.flight-sheet {
+  position: absolute;
+  inset: auto 0 0;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 1.05rem 1.05rem 0 0;
+  border-top: 1px solid var(--control-border);
+  box-shadow: 0 -5px 20px var(--shadow);
+}
+.sheet-handle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 4rem;
+  padding: 1.1rem 1rem 0.6rem;
+  background: none;
+  color: var(--text);
+  border: 0;
+  font-weight: 650;
+  text-align: start;
+  touch-action: none;
+}
+.sheet-handle::before {
+  content: "";
+  position: absolute;
+  width: 2rem;
+  height: 3px;
+  background: var(--text-secondary);
+  top: 0.45rem;
+  left: calc(50% - 1rem);
+  border-radius: 2px;
+}
+.sheet-handle small {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.sheet-handle svg {
+  margin-inline-start: auto;
+}
+.sheet-content {
+  max-height: min(47svh, 28rem, calc(var(--map-height) - 3.5rem));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.sheet-content .timeline {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding-top: 0.35rem;
+}
+.weather-layers__panel small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 0.15rem 0 0.4rem;
+}
+@media (max-width: 43rem) {
+  .map-viewport .route-globe__controls {
+    inset-inline-end: 0.65rem;
+    inset-block-end: 2.75rem;
+    inset-block-start: auto;
+    display: flex;
+  }
+  .map-viewport .route-globe__controls button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .map-viewport .weather-layers summary {
+    min-height: 44px;
+  }
+  .map-viewport .weather-layers {
+    z-index: 6;
+  }
+  .map-viewport:has(.weather-layers[open]) {
+    z-index: 7;
+  }
+  .weather-layers__panel {
+    max-height: min(45svh, 21rem);
+    overflow: auto;
+  }
+}
+.flight-phases {
+  display: flex;
+  margin-top: 0.55rem;
+  gap: 2px;
+}
+.flight-phases span {
+  flex-basis: 0;
+  min-width: min-content;
+  border-inline-start: 1px solid var(--control-border);
+  padding-inline-start: 0.32rem;
+  text-transform: capitalize;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.track input {
+  touch-action: pan-y;
+}
+.bands [data-level="light"] {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 5px,
+    #12203680 5px 6px
+  );
+}
+.bands [data-level="moderate"] {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    #122036a6 3px 4px
+  );
+}
+.bands [data-level="severe"] {
+  background-image:
+    repeating-linear-gradient(45deg, transparent 0 3px, #121c30b3 3px 4px),
+    repeating-linear-gradient(135deg, transparent 0 3px, #121c30b3 3px 4px);
+}
+.sample-detail .seatbelt-indicator {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--type-small);
+}
+.replay-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+@media (max-width: 26rem) {
+  .replay-nav {
+    gap: 0.25rem;
+  }
+  .replay-nav .guide-button {
+    padding-inline: 0.4rem;
+  }
+}
+@media (max-width: 43rem) {
+  .map-card:has(.sheet-handle[aria-expanded="true"])
+    .map-viewport
+    :is(.weather-layers, .activate-globe, .route-globe__controls) {
+    visibility: hidden;
+  }
+  .map-card .legend {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    padding: 0.1rem 0.35rem;
+  }
+  .map-card .legend:has(.level-dot[data-level="unavailable"]) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .map-card .legend b {
+    position: absolute;
+    clip-path: inset(50%);
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+  }
+  .map-card .legend .level-link {
+    min-height: 2.5rem;
+    white-space: nowrap;
+    text-align: center;
+  }
+}

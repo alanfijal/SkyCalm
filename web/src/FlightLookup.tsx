@@ -21,24 +21,8 @@ import {
 import type { Run } from "./types";
 import "./flightLookup.css";
 
-const pendingKey = "skycalm-pending-lookup";
-export function pendingLookup(): {
-  number: string;
-  date: string;
-  schedule?: boolean;
-} | null {
-  try {
-    const x = JSON.parse(sessionStorage.getItem(pendingKey) || "null");
-    return x &&
-      x.until > Date.now() &&
-      typeof x.number === "string" &&
-      typeof x.date === "string"
-      ? x
-      : null;
-  } catch {
-    return null;
-  }
-}
+import { pendingLookup, lookupKey as pendingKey } from "./lookupDraft";
+export { pendingLookup } from "./lookupDraft";
 
 export default function FlightLookup({
   run,
@@ -97,7 +81,7 @@ export default function FlightLookup({
               until: Date.now() + 600000,
             }),
           );
-          await signIn(settings.auth, "/");
+          await signIn(settings.auth, "/forecast");
           return;
         }
         const response = await findFlights(archived[0]?.number ?? number, date);
@@ -115,8 +99,12 @@ export default function FlightLookup({
   );
   useEffect(() => {
     const saved = pendingLookup();
-    sessionStorage.removeItem(pendingKey);
-    if (saved && signedIn())
+    try {
+      sessionStorage.removeItem(pendingKey);
+    } catch {
+      /* Airport and archive searches also work when browser storage is blocked. */
+    }
+    if (saved && (signedIn() || saved.fromLanding))
       void search(saved.number, saved.date, saved.schedule);
     return () => {
       revision.current++;

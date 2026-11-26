@@ -1,9 +1,12 @@
 import { Layers3 } from "lucide-react";
+import type { ReactNode } from "react";
 import "./weather.css";
 import { clock, dateLabel } from "./types";
 import type { LayerChoice, WeatherSnapshot } from "./observations";
 
 interface Props {
+  children?: ReactNode;
+  hideObservations?: boolean;
   choice: LayerChoice;
   onChange: (c: LayerChoice) => void;
   data: WeatherSnapshot | null;
@@ -12,6 +15,8 @@ interface Props {
   onRetry: () => void;
 }
 export default function WeatherLayers({
+  children,
+  hideObservations,
   choice,
   onChange,
   data,
@@ -26,22 +31,31 @@ export default function WeatherLayers({
         <Layers3 size={16} /> Map layers
       </summary>
       <div className="weather-layers__panel">
-        <label>
-          <input
-            type="checkbox"
-            checked={choice.sigmet}
-            onChange={(e) => onChange({ ...choice, sigmet: e.target.checked })}
-          />
-          <i className="sigmet-symbol" /> Turbulence advisories
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={choice.report}
-            onChange={(e) => onChange({ ...choice, report: e.target.checked })}
-          />
-          <i className="report-symbol" /> Aircraft weather reports
-        </label>
+        {children}
+        {!hideObservations && (
+          <>
+            <label>
+              <input
+                type="checkbox"
+                checked={choice.sigmet}
+                onChange={(e) =>
+                  onChange({ ...choice, sigmet: e.target.checked })
+                }
+              />
+              <i className="sigmet-symbol" /> Turbulence advisories
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={choice.report}
+                onChange={(e) =>
+                  onChange({ ...choice, report: e.target.checked })
+                }
+              />
+              <i className="report-symbol" /> Aircraft weather reports
+            </label>
+          </>
+        )}
         {active && (
           <div className="layer-status" role="status">
             {loading ? (
