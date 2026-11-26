@@ -32,7 +32,7 @@ def make_handler(store: LocalStore, public: Path):
                 return
             asset = (
                 "index.html"
-                if request.path in ("/", "/flights", "/demo", "/health")
+                if request.path in ("/", "/flights", "/demo", "/health", "/history")
                 else unquote(request.path).lstrip("/")
             )
             local = (public / asset).resolve()

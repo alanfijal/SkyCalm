@@ -17,7 +17,7 @@ resource "aws_cloudfront_cache_policy" "assets" {
     enable_accept_encoding_gzip   = true
   }
 }
-# Phase 1 serves static files at this origin. WAF and its budget are reviewed in Phase 6.
+# Classroom deployments opt in to the monthly ACL.
 #trivy:ignore:AVD-AWS-0011
 resource "aws_cloudfront_distribution" "web" {
   enabled             = true
@@ -25,18 +25,48 @@ resource "aws_cloudfront_distribution" "web" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
   is_ipv6_enabled     = true
+  web_acl_id          = var.enable_edge_waf ? aws_wafv2_web_acl.web[0].arn : null
   origin {
     domain_name              = aws_s3_bucket.app["web"].bucket_regional_domain_name
     origin_id                = "private-site"
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
+  dynamic "origin" {
+    for_each = aws_lambda_function_url.forecast
+    content {
+      domain_name              = trimsuffix(trimprefix(origin.value.function_url, "https://"), "/")
+      origin_id                = "signed-forecast"
+      origin_access_control_id = aws_cloudfront_origin_access_control.forecast[0].id
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+  dynamic "ordered_cache_behavior" {
+    for_each = var.enable_edge_waf ? [1] : []
+    content {
+      path_pattern               = "/api/*"
+      target_origin_id           = "signed-forecast"
+      viewer_protocol_policy     = "https-only"
+      allowed_methods            = ["GET", "HEAD"]
+      cached_methods             = ["GET", "HEAD"]
+      cache_policy_id            = data.aws_cloudfront_cache_policy.disabled[0].id
+      origin_request_policy_id   = aws_cloudfront_origin_request_policy.forecast[0].id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
+      compress                   = true
+    }
+  }
   default_cache_behavior {
-    target_origin_id       = "private-site"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-    cache_policy_id        = aws_cloudfront_cache_policy.assets.id
+    target_origin_id           = "private-site"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = aws_cloudfront_cache_policy.assets.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.passenger_pages.arn
@@ -56,7 +86,7 @@ resource "aws_cloudfront_distribution" "web" {
 locals {
   mime_types = {
     html  = "text/html; charset=utf-8", css = "text/css", js = "text/javascript",
-    json  = "application/json", geojson = "application/geo+json", svg = "image/svg+xml",
+    json  = "application/json", jsonl = "application/x-ndjson", geojson = "application/geo+json", svg = "image/svg+xml",
     woff2 = "font/woff2", txt = "text/plain; charset=utf-8", png = "image/png", webmanifest = "application/manifest+json"
   }
   site_files = setsubtract(fileset(var.web_directory, "**"), ["config.json"])
@@ -73,7 +103,7 @@ resource "aws_s3_object" "site" {
 resource "aws_s3_object" "runtime" {
   bucket        = aws_s3_bucket.app["web"].id
   key           = "config.json"
-  content       = jsonencode({ apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint, auth = { domain = "https://${local.login_prefix}.auth.${local.region}.amazoncognito.com", issuer = "https://${aws_cognito_user_pool.passengers.endpoint}", clientId = aws_cognito_user_pool_client.passengers.id, vapidPublicKey = var.passenger_settings.vapid_public } })
+  content       = jsonencode({ apiOrigin = aws_apigatewayv2_api.forecast.api_endpoint, publicApiOrigin = var.enable_edge_waf ? "" : aws_apigatewayv2_api.forecast.api_endpoint, auth = { domain = "https://${local.login_prefix}.auth.${local.region}.amazoncognito.com", issuer = "https://${aws_cognito_user_pool.passengers.endpoint}", clientId = aws_cognito_user_pool_client.passengers.id, vapidPublicKey = var.passenger_settings.vapid_public } })
   content_type  = "application/json"
   cache_control = "no-store"
 }

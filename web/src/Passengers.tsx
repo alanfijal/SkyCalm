@@ -14,6 +14,7 @@ import {
   canOperate,
   config,
   isAdmin,
+  presenterAccessStatus,
   privateApi,
   signedIn,
   signIn,
@@ -57,6 +58,31 @@ const names: Record<string, string> = {
 };
 const time = (d: string) => dateLabel(d) + " · " + clock(d) + " UTC";
 const endpoint = "/api/me";
+function PresenterAccessCheck() {
+  const [result, setResult] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function check() {
+    setBusy(true);
+    try {
+      const { anonymous, current } = await presenterAccessStatus();
+      setResult(
+        `Signed out · HTTP ${anonymous}. This session · HTTP ${current}.`,
+      );
+    } catch {
+      setResult("The access check could not reach the service.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <button disabled={busy} onClick={check}>
+        Check presenter access
+      </button>
+      <p role="status">{result}</p>
+    </div>
+  );
+}
 const freshForm = () => ({
   origin: "",
   destination: "",
@@ -255,6 +281,7 @@ export default function Passengers({
                 Sign in
               </button>
             )}
+            {admin && signedIn() && isAdmin() && <PresenterAccessCheck />}
           </section>
         ) : data?.closing ? (
           <section className="pass-card">
@@ -573,6 +600,9 @@ function Operator({
   const [health, setHealth] = useState<{
     latestRun: string;
     model: string;
+    manifestAvailable?: boolean;
+    modelVersion?: number | null;
+    observationsAsOf?: string | null;
     traffic: string;
     lastPush: number | null;
     queues: Record<string, number>;
@@ -650,8 +680,24 @@ function Operator({
         health && (
           <section className="pass-card">
             <h2>Pipeline</h2>
+            <PresenterAccessCheck />
             <p>Latest grid · {health.latestRun ?? "Unavailable"}</p>
-            <p>Model · {health.model}</p>
+            <p>
+              Forecast method ·{" "}
+              {health.modelVersion
+                ? `LightGBM v${health.modelVersion} with physics fallback`
+                : health.manifestAvailable
+                  ? "Physics baseline"
+                  : health.latestRun
+                    ? "Grid details unavailable"
+                    : "Awaiting first grid"}
+            </p>
+            <p>
+              Weather observations ·{" "}
+              {health.observationsAsOf
+                ? time(health.observationsAsOf)
+                : "No snapshot recorded"}
+            </p>
             <p>Aircraft · {health.traffic}</p>
             <p>
               Last push accepted ·{" "}

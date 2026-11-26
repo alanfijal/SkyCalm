@@ -29,10 +29,20 @@ export default function Guide() {
           </p>
           <h3>The colours</h3>
           <p>
-            At cruise, the index combines how quickly the wind changes with
-            height and how the wind field deforms. Lower down, surface CAPE
-            provides a separate indicator of convective conditions. The four
-            categories are project estimates. Grey indicates missing coverage.
+            On a model-scored grid, LightGBM estimates a turbulence category at
+            cruise levels. Select a point to see its model version, estimated
+            probability and strongest contributing factor. With seven held-out
+            aircraft reports, calibration remains uncertain. Grey marks missing
+            data.
+          </p>
+          <p>
+            Baseline grids use wind shear and deformation. Near the ground, both
+            methods use surface CAPE as an indicator of convective conditions.
+          </p>
+          <h3>Seat comfort</h3>
+          <p>
+            Bumps can feel a little milder near the wings. The forecast
+            describes the air along the route and applies to the whole aircraft.
           </p>
           <h3>Data time</h3>
           <p>

@@ -16,6 +16,7 @@ async function provider(
   page: Page,
   result:
     "success" | "wrong-state" | "invite-denied" | "provider-error" = "success",
+  presenter = false,
 ) {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -81,6 +82,7 @@ async function provider(
         iat,
         exp: iat + 900,
         token_use: "id",
+        "cognito:groups": presenter ? ["admins"] : [],
       });
     const signature = sign(
       "RSA-SHA256",
@@ -211,6 +213,47 @@ for (const [result, message] of [
     expect(exchanges()).toBe(0);
   });
 }
+test("a presenter can compare signed-out, passenger and presenter access", async ({
+  page,
+}) => {
+  let presenterScope = false;
+  await provider(page, "success", true);
+  await page.route("**/api/me", (r) =>
+    r.fulfill({
+      json: {
+        flights: [],
+        inbox: [],
+        preferences: { push: false, email: false },
+      },
+    }),
+  );
+  await page.route("**/api/admin/health", (r) =>
+    r.fulfill({
+      status: r.request().headers().authorization
+        ? presenterScope
+          ? 200
+          : 403
+        : 401,
+      json: { queues: {}, latestRun: null, modelVersion: null },
+    }),
+  );
+  await page.goto("/flights");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Account", exact: true }).click();
+  await page.getByRole("link", { name: "Open demo controls" }).click();
+  await page.getByRole("button", { name: "Check presenter access" }).click();
+  await expect(
+    page.getByText("Signed out · HTTP 401. This session · HTTP 403."),
+  ).toBeVisible();
+  presenterScope = true;
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "System health" }).click();
+  await page.getByRole("button", { name: "Check presenter access" }).click();
+  await expect(
+    page.getByText("Signed out · HTTP 401. This session · HTTP 200."),
+  ).toBeVisible();
+});
+
 test("an anonymous visitor cannot operate the demo", async ({ page }) => {
   await provider(page);
   await page.goto("/demo");

@@ -1,0 +1,15 @@
+{"origin":"EDI","destination":"OPO","run_id":"gfs-20261120-06","departure":"2026-11-20T14:15:00Z","peak":"severe","snapshot_at":"2026-11-20T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"AMS","destination":"LHR","run_id":"gfs-20261120-06","departure":"2026-11-20T14:15:00Z","peak":"smooth","snapshot_at":"2026-11-20T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"BCN","destination":"ARN","run_id":"gfs-20261120-06","departure":"2026-11-20T14:15:00Z","peak":"moderate","snapshot_at":"2026-11-20T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"EDI","destination":"OPO","run_id":"gfs-20261121-06","departure":"2026-11-21T14:15:00Z","peak":"moderate","snapshot_at":"2026-11-21T18:05:00Z","report_count":1,"reports":[{"source":"AIREP","observed":"2026-11-21T14:37:00Z","altitude_ft":32000,"distance_km":50,"elapsed_minutes":33,"reported":"light","forecast":"moderate"}]}
+{"origin":"AMS","destination":"LHR","run_id":"gfs-20261121-06","departure":"2026-11-21T14:15:00Z","peak":"light","snapshot_at":"2026-11-21T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"BCN","destination":"ARN","run_id":"gfs-20261121-06","departure":"2026-11-21T14:15:00Z","peak":"moderate","snapshot_at":"2026-11-21T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"EDI","destination":"OPO","run_id":"gfs-20261122-06","departure":"2026-11-22T14:15:00Z","peak":"light","snapshot_at":"2026-11-22T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"AMS","destination":"LHR","run_id":"gfs-20261122-06","departure":"2026-11-22T14:15:00Z","peak":"light","snapshot_at":"2026-11-22T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"BCN","destination":"ARN","run_id":"gfs-20261122-06","departure":"2026-11-22T14:15:00Z","peak":"moderate","snapshot_at":"2026-11-22T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"EDI","destination":"OPO","run_id":"gfs-20261123-06","departure":"2026-11-23T14:15:00Z","peak":"moderate","snapshot_at":"2026-11-23T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"AMS","destination":"LHR","run_id":"gfs-20261123-06","departure":"2026-11-23T14:15:00Z","peak":"light","snapshot_at":"2026-11-23T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"BCN","destination":"ARN","run_id":"gfs-20261123-06","departure":"2026-11-23T14:15:00Z","peak":"light","snapshot_at":"2026-11-23T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"EDI","destination":"OPO","run_id":"gfs-20261124-12","departure":"2026-11-24T20:15:00Z","peak":"severe","snapshot_at":"2026-11-24T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"AMS","destination":"LHR","run_id":"gfs-20261124-12","departure":"2026-11-24T20:15:00Z","peak":"severe","snapshot_at":"2026-11-24T18:05:00Z","report_count":0,"reports":[]}
+{"origin":"BCN","destination":"ARN","run_id":"gfs-20261124-12","departure":"2026-11-24T20:15:00Z","peak":"moderate","snapshot_at":"2026-11-24T18:05:00Z","report_count":0,"reports":[]}

@@ -99,7 +99,11 @@ class AwsStore:
             return None
 
     def model_tile(self, run_id, lead, digest):
-        return checked_tile(self.read(self.prefix(run_id) + digest + ".ml.gz", 150_000), digest)
+        try:
+            data = self.read(self.prefix(run_id) + digest + ".ml.gz", 150_000)
+        except self.s3.exceptions.NoSuchKey:
+            data = self.read(f"archive/{SCORER}/{run_id}/ml-{lead:03}.gz", 150_000)
+        return checked_tile(data, digest)
 
     def advance(self, run_id: str) -> None:
         issue_time(run_id)

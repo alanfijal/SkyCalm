@@ -49,3 +49,34 @@ resource "aws_athena_workgroup" "observations" {
     }
   }
 }
+
+resource "aws_glue_catalog_table" "route_days" {
+  name          = "route_days"
+  database_name = aws_glue_catalog_database.observations.name
+  table_type    = "EXTERNAL_TABLE"
+  parameters    = { EXTERNAL = "TRUE", classification = "json" }
+  storage_descriptor {
+    location      = "s3://${aws_s3_bucket.app["web"].bucket}/data/route-history/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+    ser_de_info { serialization_library = "org.openx.data.jsonserde.JsonSerDe" }
+    dynamic "columns" {
+      for_each = {
+        origin  = "string", destination = "string", run_id = "string", departure = "string",
+        peak    = "string", snapshot_at = "string", report_count = "int",
+        reports = "array<struct<source:string,observed:string,altitude_ft:int,distance_km:int,elapsed_minutes:int,reported:string,forecast:string>>"
+      }
+      content {
+        name = columns.key
+        type = columns.value
+      }
+    }
+  }
+}
+
+resource "aws_athena_named_query" "route_summary" {
+  name      = "SkyCalm route history"
+  database  = aws_glue_catalog_database.observations.name
+  workgroup = aws_athena_workgroup.observations.name
+  query     = file("${path.module}/../../../analytics/route_summary.sql")
+}

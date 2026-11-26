@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import App from "./App";
 import { config, finishSignIn } from "./passengerAuth";
+const App = lazy(() => import("./App"));
 const Passengers = lazy(() => import("./Passengers"));
-const pages = ["/", "/flights", "/demo", "/health"];
+const RouteHistory = lazy(() => import("./RouteHistory"));
+const pages = ["/", "/flights", "/demo", "/health", "/history"];
 export default function Router() {
   const [path, setPath] = useState(location.pathname),
     [error, setError] = useState("");
@@ -66,6 +67,12 @@ export default function Router() {
     };
   }, []);
   const [version, setVersion] = useState(0);
+  if (path === "/history")
+    return (
+      <Suspense fallback={<main>Loading route history…</main>}>
+        <RouteHistory />
+      </Suspense>
+    );
   return pages.slice(1).includes(path) ? (
     <Suspense fallback={<main>Loading…</main>}>
       <Passengers
@@ -75,6 +82,8 @@ export default function Router() {
       />
     </Suspense>
   ) : (
-    <App />
+    <Suspense fallback={<main>Loading forecast…</main>}>
+      <App />
+    </Suspense>
   );
 }

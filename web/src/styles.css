@@ -989,6 +989,9 @@ h2 {
   }
 }
 @media (max-width: 22rem) {
+  .nav-inner, .nav-actions, .brand {
+    gap: 0.25rem;
+  }
   .nav-actions .guide-button > span {
     display: none;
   }

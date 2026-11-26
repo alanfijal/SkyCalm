@@ -221,6 +221,30 @@ export async function privateApi<T>(
   }
   return r.json();
 }
+export async function presenterAccessStatus() {
+  const settings = await config();
+  if (!settings.auth) throw Error("Sign in is unavailable.");
+  const token = await accessToken(settings.auth);
+  const url = settings.apiOrigin + "/api/admin/health";
+  async function status(headers: HeadersInit) {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      credentials: "omit",
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      signal: AbortSignal.timeout(15000),
+    });
+    await response.body?.cancel();
+    return response.status;
+  }
+  const [anonymous, current] = await Promise.all([
+    status({}),
+    status({ authorization: "Bearer " + token }),
+  ]);
+  return { anonymous, current };
+}
+
 export function signOut(a: Auth) {
   session = undefined;
   sessionStorage.removeItem(transaction);
