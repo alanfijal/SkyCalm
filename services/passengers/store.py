@@ -38,13 +38,16 @@ class PassengerStore:
         item = self.db.get_item(**self.key(owner, sk), ConsistentRead=True).get("Item")
         return decode(item) if item else {}
 
-    def rows(self, owner, now, include_expired=False):
+    def rows(self, owner, now, include_expired=False, include_snapshots=False):
         query = dict(
             TableName=self.name,
             KeyConditionExpression="pk = :p",
             ExpressionAttributeValues=encode({":p": owner}),
             ConsistentRead=True,
         )
+        if not include_snapshots:
+            query["FilterExpression"] = "NOT begins_with(sk, :snap)"
+            query["ExpressionAttributeValues"].update(encode({":snap": "forecast#"}))
         while True:
             page = self.db.query(**query)
             for raw in page["Items"]:
@@ -111,9 +114,11 @@ class PassengerStore:
         args = {":now": now}
         if expected:
             args[":old"] = expected
+        cleanup = self.related_deletes(owner, old)
         self.transact(
             owner,
             [
+                *cleanup,
                 {
                     "Put": dict(
                         TableName=self.name,
@@ -121,22 +126,32 @@ class PassengerStore:
                         ConditionExpression=cond,
                         ExpressionAttributeValues=encode(args),
                     )
-                }
+                },
             ],
         )
         return item
 
+    def related_deletes(self, owner, flight):
+        if not flight.get("id"):
+            return []
+        return [
+            {"Delete": self.key(owner, "forecast#" + flight["id"])},
+            {"Delete": self.key("link#" + flight["id"].replace("-", ""), "forecast")},
+        ]
+
     def remove(self, owner, slot, revision):
+        old = self.get(owner, f"flight#{slot}")
         self.transact(
             owner,
             [
+                *self.related_deletes(owner, old),
                 {
                     "Delete": {
                         **self.key(owner, f"flight#{slot}"),
                         "ConditionExpression": "revision = :r",
                         "ExpressionAttributeValues": encode({":r": revision}),
                     }
-                }
+                },
             ],
         )
 
@@ -147,12 +162,24 @@ class PassengerStore:
         )
 
     def erase_rows(self, owner, now):
-        for row in self.rows(owner, now, include_expired=True):
+        for row in self.rows(owner, now, include_expired=True, include_snapshots=True):
+            if row["sk"].startswith("flight#") and row.get("familyGrant"):
+                self.db.delete_item(**self.key("link#" + row["id"].replace("-", ""), "forecast"))
             if row["sk"] != "account":
                 self.db.delete_item(**self.key(owner, row["sk"]))
 
     def notice(
-        self, flight, kind, event_id, now, *, peak=None, updates=None, condition=None, values=None
+        self,
+        flight,
+        kind,
+        event_id,
+        now,
+        *,
+        peak=None,
+        updates=None,
+        condition=None,
+        values=None,
+        extra=(),
     ):
         owner, sk = flight["pk"], flight["sk"]
         uid = hashlib.sha256(
@@ -170,9 +197,16 @@ class PassengerStore:
         )
         if peak in CATEGORIES:
             notice["peak"] = peak
-        writes = []
+        writes = list(extra)
         if sk.startswith("flight#"):
-            notice.update(slot=flight["slot"], flightRevision=flight["revision"])
+            notice.update(
+                slot=flight["slot"],
+                flightRevision=flight["revision"],
+                flightId=flight["id"],
+                routeLabel=flight["origin"] + " → " + flight["destination"],
+            )
+            if updates:
+                notice["runMarker"] = event_id
             guard = {
                 **self.key(owner, sk),
                 "ConditionExpression": "revision=:r AND expiresAt>:now"
@@ -201,7 +235,7 @@ class PassengerStore:
                 raise
         return notice
 
-    def record_forecast(self, flight, run, summary, now, test=False):
+    def record_forecast(self, flight, run, summary, now, test=False, forecast=None):
         if summary is None:
             return
         old = flight.get("assessment")
@@ -209,7 +243,40 @@ class PassengerStore:
         values = {":run": run, ":s": summary}
         if test:
             fresh = "attribute_not_exists(lastRun) OR lastRun <> :run"
-        edits = "SET lastRun=:run, assessment=:s"
+        from services.passengers.journey import compact_forecast, ribbon
+
+        history = list(flight.get("forecastHistory", []))
+        point = {"marker": run, "at": now, "peak": summary["peak"]}
+        if forecast is not None:
+            point.update(run=forecast["run"]["runId"], issued=forecast["run"]["issued"])
+        elif test:
+            point["simulated"] = True
+        history.append(point)
+        values.update({":history": history[-32:], ":baseline": old or summary, ":at": now})
+        edits = (
+            "SET lastRun=:run, assessment=:s, baseline=if_not_exists(baseline,:baseline), "
+            "forecastAt=:at, forecastHistory=:history"
+        )
+        extra = []
+        if forecast is not None:
+            values[":ribbon"] = ribbon(forecast["samples"])
+            edits += ", ribbon=:ribbon"
+            extra.append(
+                {
+                    "Put": {
+                        "TableName": self.name,
+                        "Item": encode(
+                            {
+                                "pk": flight["pk"],
+                                "sk": "forecast#" + flight["id"],
+                                "revision": flight["revision"],
+                                "expiresAt": flight["expiresAt"],
+                                "payload": compact_forecast(forecast),
+                            }
+                        ),
+                    }
+                }
+            )
         condition = "(" + fresh + ")"
         # Compare against precisely the previous assessment used in the decision.
         if flight.get("lastRun"):
@@ -227,10 +294,12 @@ class PassengerStore:
                 updates=edits + ", lastAlert=:now",
                 condition=condition,
                 values=values,
+                extra=extra,
             )
         self.transact(
             flight["pk"],
             [
+                *extra,
                 {
                     "Update": {
                         **self.key(flight["pk"], flight["sk"]),
@@ -238,17 +307,45 @@ class PassengerStore:
                         "ConditionExpression": f"revision=:r AND ({condition})",
                         "ExpressionAttributeValues": encode({":r": flight["revision"], **values}),
                     }
+                },
+            ],
+        )
+
+    def set_read(self, owner, uid, read, now):
+        self.transact(
+            owner,
+            [
+                {
+                    "Update": {
+                        **self.key(owner, "notice#" + uid),
+                        "ConditionExpression": "attribute_exists(pk) AND expiresAt>:now",
+                        "UpdateExpression": "SET isRead=:read",
+                        "ExpressionAttributeValues": encode({":now": now, ":read": read}),
+                    }
                 }
             ],
         )
 
-    def mark_delivery(self, owner, sk, result, stamp):
+    def end_sessions(self, owner, now):
+        try:
+            self.db.update_item(
+                **self.key(owner, "account"),
+                ConditionExpression="attribute_not_exists(erasing) AND (attribute_not_exists(signedOutAt) OR signedOutAt <= :t)",
+                UpdateExpression="SET signedOutAt=:t",
+                ExpressionAttributeValues=encode({":t": now}),
+            )
+        except self.db.exceptions.ConditionalCheckFailedException as exc:
+            raise conflict() from exc
+
+    def mark_delivery(self, owner, sk, result, stamp, *, delivered_level=None):
         try:
             self.db.update_item(
                 **self.key(owner, sk),
                 ConditionExpression="attribute_exists(pk) AND delivery=:p",
-                UpdateExpression="SET delivery=:s, deliveredAt=:t",
-                ExpressionAttributeValues=encode({":p": "pending", ":s": result, ":t": stamp}),
+                UpdateExpression="SET delivery=:s, deliveredAt=:t, deliveredLevel=:level",
+                ExpressionAttributeValues=encode(
+                    {":p": "pending", ":s": result, ":t": stamp, ":level": delivered_level}
+                ),
             )
         except ClientError as exc:
             if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":

@@ -15,6 +15,9 @@ from botocore.exceptions import ClientError
 from services.forecast.api import RequestError
 from services.forecast.schema import SCORER, utc_text
 from services.passengers.domain import flight_input, identifier, identity, subscription
+from services.passengers.journey import detail, flight_or_missing, reminder
+from services.passengers.preferences import DEFAULTS, settings_patch
+from services.passengers.sharing import read_link, set_link
 from services.passengers.store import PassengerStore
 from services.pipeline import runtime
 from services.pipeline.contract import AVAILABLE, REPLAYS, job_spec, send_event
@@ -37,8 +40,26 @@ FLIGHT_FIELDS = (
     "arrival",
     "watch",
     "assessment",
+    "baseline",
+    "forecastAt",
+    "ribbon",
+    "expiresAt",
 )
-NOTICE_FIELDS = ("noticeId", "kind", "created", "slot", "delivery", "deliveredAt", "peak")
+NOTICE_FIELDS = (
+    "noticeId",
+    "kind",
+    "created",
+    "slot",
+    "delivery",
+    "deliveredAt",
+    "peak",
+    "flightRevision",
+    "flightId",
+    "routeLabel",
+    "runMarker",
+    "isRead",
+    "deliveredLevel",
+)
 SEEDS = (("EDI", "OPO", 12), ("AMS", "LHR", 26), ("BCN", "ARN", 30))
 
 
@@ -46,8 +67,9 @@ def public_row(row, fields):
     return {k: row[k] for k in fields if k in row}
 
 
-def public_preferences(prefs: dict) -> dict[str, bool]:
+def public_preferences(prefs: dict) -> dict:
     return {
+        **{k: prefs.get(k, v) for k, v in DEFAULTS.items()},
         "push": bool(prefs.get("device")),
         "email": bool(prefs.get("email")),
         "explainAlerts": prefs.get("explainAlerts") is True,
@@ -57,8 +79,19 @@ def public_preferences(prefs: dict) -> dict[str, bool]:
 def view(store, owner, now):
     rows = list(store.rows(owner, now))
     prefs = next((x.get("prefs", {}) for x in rows if x["sk"] == "account"), {})
+    flights = [x for x in rows if x["sk"].startswith("flight#")]
+    revisions = {f["revision"]: f for f in flights}
+    for row in rows:
+        # Pre-7D notices only have a revision. A reused slot must never link to a new passenger trip.
+        previous = revisions.get(row.get("flightRevision"))
+        if row["sk"].startswith("notice#") and previous and previous["slot"] == row.get("slot"):
+            row.setdefault("flightId", previous["id"])
+            row.setdefault("routeLabel", previous["origin"] + " → " + previous["destination"])
     return {
-        "flights": [public_row(x, FLIGHT_FIELDS) for x in rows if x["sk"].startswith("flight#")],
+        "flights": [
+            {**public_row(x, FLIGHT_FIELDS), "nextReminder": reminder(x["departureEpoch"], now)}
+            for x in flights
+        ],
         "inbox": sorted(
             (public_row(x, NOTICE_FIELDS) for x in rows if x["sk"].startswith("notice#")),
             key=lambda n: n["created"],
@@ -230,6 +263,21 @@ def admin_action(path, method, body, owner, store, now, clients):
     raise RequestError("invalid_action", "Choose an operator action.", 400)
 
 
+def parse_body(event):
+    raw = event.get("body") or "{}"
+    if len(raw) > 12000:
+        raise RequestError("too_large", "Request is too large.", 413)
+    try:
+        body = json.loads(
+            base64.b64decode(raw, validate=True) if event.get("isBase64Encoded") else raw
+        )
+        if not isinstance(body, dict):
+            raise ValueError
+    except (ValueError, TypeError, UnicodeError) as exc:
+        raise RequestError("invalid_body", "Expected a JSON object.", 400) from exc
+    return body
+
+
 def dispatch(event, store, clients=runtime.client, now=None):
     now = now or datetime.now(UTC)
     epoch = int(now.timestamp())
@@ -245,8 +293,18 @@ def dispatch(event, store, clients=runtime.client, now=None):
         if method == "GET" or (method == "POST" and path == "/api/me/flight-lookup")
         else WRITE
     )
+    if method == "POST" and path == "/api/shared":
+        return read_link(store, parse_body(event).get("token"), epoch)
     owner, username = identity(event, scope)
     account = store.get(owner, "account")
+    closing_sessions = method == "POST" and path == "/api/me/sign-out"
+    claims = event["requestContext"]["authorizer"]["jwt"]["claims"]
+    if (
+        account.get("signedOutAt")
+        and int(claims.get("auth_time", 0)) <= account["signedOutAt"]
+        and not closing_sessions
+    ):
+        raise RequestError("signed_out", "Your session ended. Please sign in again.", 401)
     erasing = method == "DELETE" and path == "/api/me"
     if account.get("erasing") and method == "GET" and path == "/api/me":
         return {
@@ -257,17 +315,37 @@ def dispatch(event, store, clients=runtime.client, now=None):
         }
     if account.get("erasing") and not erasing:
         raise RequestError("closed", "This account is closed.", 410)
-    raw = event.get("body") or "{}"
-    if len(raw) > 12000:
-        raise RequestError("too_large", "Request is too large.", 413)
-    try:
-        body = json.loads(
-            base64.b64decode(raw, validate=True) if event.get("isBase64Encoded") else raw
+    body = parse_body(event)
+    if closing_sessions:
+        bearer = event.get("headers", {}).get("authorization", "").split()
+        if len(bearer) != 2 or bearer[0].lower() != "bearer":
+            raise RequestError("unauthorized", "Please sign in again.", 401)
+        # Cognito rejects revoked tokens for GetUser. A stale token cannot move the cutoff again.
+        cognito = clients("cognito-idp")
+        try:
+            cognito.get_user(AccessToken=bearer[1])
+        except cognito.exceptions.NotAuthorizedException as exc:
+            raise RequestError("signed_out", "This session has already ended.", 401) from exc
+        store.end_sessions(owner, epoch)
+        cognito.global_sign_out(AccessToken=bearer[1])
+        return {"signedOut": True}
+    flight_action = re.fullmatch(r"/api/me/flights/([1-8])/(detail|share)", path)
+    if flight_action:
+        flight = flight_or_missing(
+            store,
+            owner,
+            int(flight_action[1]),
+            epoch,
+            identifier(body.get("revision")) if method in ("POST", "DELETE") else None,
         )
-        if not isinstance(body, dict):
-            raise ValueError
-    except (ValueError, TypeError, UnicodeError) as exc:
-        raise RequestError("invalid_body", "Expected a JSON object.", 400) from exc
+        if method == "GET" and flight_action[2] == "detail":
+            return detail(store, flight, epoch, runtime.weather)
+        if method in ("POST", "DELETE") and flight_action[2] == "share":
+            return set_link(store, flight, epoch, method == "POST")
+    notice = re.fullmatch(r"/api/me/notices/([0-9a-f]{32})", path)
+    if notice and method == "PUT" and isinstance(body.get("read"), bool):
+        store.set_read(owner, notice[1], body["read"], epoch)
+        return {"read": body["read"]}
     if method == "POST" and path == "/api/me/flight-lookup":
         from services.flights.aws import aws_lookup
 
@@ -288,6 +366,11 @@ def dispatch(event, store, clients=runtime.client, now=None):
     if method == "GET" and path in ("/api/me", "/api/me/export"):
         data = view(store, owner, epoch)
         if path.endswith("export"):
+            data["forecastHistory"] = {
+                row["id"]: row.get("forecastHistory", [])
+                for row in store.rows(owner, epoch)
+                if row["sk"].startswith("flight#")
+            }
             data.update(
                 subject=owner,
                 identity=identity_attributes(event, clients),
@@ -309,7 +392,9 @@ def dispatch(event, store, clients=runtime.client, now=None):
     if path == "/api/me/preferences" and method == "PUT":
         prefs = dict(account.get("prefs", {}))
         key = body.get("channel")
-        if key == "email" and isinstance(body.get("enabled"), bool):
+        if key == "passenger":
+            prefs.update(settings_patch(body.get("settings")))
+        elif key == "email" and isinstance(body.get("enabled"), bool):
             if body["enabled"]:
                 prefs["email"] = verified_email(event, clients)
             else:
