@@ -5,8 +5,10 @@ test("the public replay plays, pauses, scrubs and restarts at the recorded airpo
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Replay a recorded flight" }).click();
-  await expect(page).toHaveURL(/\/replay$/);
+  await page.getByRole("link", { name: "Search recorded flights" }).click();
+  await page.getByRole("searchbox").fill("Catania to Milan");
+  await page.getByRole("link", { name: /AZ1704.*Play recording/ }).click();
+  await expect(page).toHaveURL(/\/replay\?flight=az1704-20261121$/);
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Catania to Milan Linate" }),
@@ -123,7 +125,8 @@ test("only the matching schedule leg and date link to the archive", async ({
   await page
     .getByRole("button", { name: "Flight number", exact: true })
     .click();
-  await page.getByLabel("Flight number", { exact: true }).fill("AZ1704");
+  // A schedule search can return an operating flight under a different number.
+  await page.getByLabel("Flight number", { exact: true }).fill("XX123");
   await page.getByLabel("Departure date (local)").fill(day);
   await page.getByRole("button", { name: "Find flight" }).click();
   const links = page.getByRole("link", { name: "Replay this recorded flight" });
@@ -132,4 +135,114 @@ test("only the matching schedule leg and date link to the archive", async ({
   await expect(
     page.getByRole("heading", { name: "Catania to Milan Linate" }),
   ).toBeVisible();
+});
+
+test("search by flight number or callsign opens the dated recording while signed out", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/config.json", (r) =>
+    r.fulfill({
+      json: {
+        apiOrigin: "",
+        flightLookup: true,
+        auth: { domain: "https://unused.invalid", clientId: "unused" },
+      },
+    }),
+  );
+  await page.route("**/api/me/flight-lookup", (r) => {
+    calls++;
+    return r.fulfill({ status: 503 });
+  });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Flight number", exact: true })
+    .click();
+  await page.getByLabel("Flight number", { exact: true }).fill("KLM71Z");
+  await page.getByLabel("Departure date (local)").fill("2026-11-21");
+  await page.getByRole("button", { name: "Find flight" }).click();
+  await page.getByRole("link", { name: /KL1521.*Play recording/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Amsterdam to Barcelona" }),
+  ).toBeVisible();
+  await expect(page.locator("time")).toHaveText("19:58 UTC");
+  await expect(
+    page.getByRole("link", { name: /Download recorded positions/ }),
+  ).toHaveAttribute("href", /kl1521-20261121\.csv$/);
+  expect(calls).toBe(0);
+});
+
+test("search remembers the flight direction and date on mobile and handles unknown recordings", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto("/recordings?q=Manchester");
+  const results = page.locator(".recording-results a");
+  await expect(results).toHaveCount(2);
+  await page.getByRole("searchbox").fill("TRN to MAN");
+  await page.getByLabel("Departure date (optional)").fill("2026-11-22");
+  await expect(page.getByRole("status")).toHaveText(
+    "No recorded flights match these filters.",
+  );
+  await page.getByLabel("Departure date (optional)").fill("2026-11-21");
+  await expect(results).toHaveCount(1);
+  await expect(results).toContainText("FR1801");
+  const scan = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(scan.violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - innerWidth,
+    ),
+  ).toBe(0);
+  await results.click();
+  await expect(
+    page.getByRole("heading", { name: "Turin to Manchester" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("searchbox")).toHaveValue("TRN to MAN");
+  await expect(results).toHaveCount(1);
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(results).toHaveCount(6);
+  await page.goto("/replay?flight=unknown");
+  await expect(
+    page.getByRole("heading", { name: "Recording not found" }),
+  ).toBeVisible();
+});
+
+test("airport selection surfaces archived flights and a weather forecast route can play independently", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Weather source").selectOption("gfs-20261121-06");
+  const playback = page.getByRole("button", { name: "Play forecast route" });
+  await expect(playback).toBeVisible();
+  const timeline = page.getByRole("slider", { name: "Point along the route" });
+  await timeline.fill("0");
+  await playback.click();
+  await expect(timeline).not.toHaveValue("0", { timeout: 8000 });
+  await timeline.fill("2");
+  await expect(playback).toBeVisible();
+  for (const [field, code] of [
+    ["departure", "AMS"],
+    ["arrival", "DUB"],
+  ]) {
+    await page
+      .getByRole("button", { name: new RegExp(field + " airport", "i") })
+      .click();
+    await page
+      .getByRole("combobox", { name: "Search " + field + " airport" })
+      .fill(code);
+    await page
+      .getByRole("option", { name: new RegExp(code) })
+      .first()
+      .click();
+  }
+  const matches = page.getByRole("region", {
+    name: "Recorded flights on this route",
+  });
+  await expect(matches.getByRole("link")).toContainText("KL1139");
+  await page.getByRole("button", { name: "Swap airports" }).click();
+  await expect(matches).toHaveCount(0);
 });

@@ -28,6 +28,9 @@ import AirportField from "./AirportField";
 import Guide from "./Guide";
 import { keepFlight, keepRoute } from "./flightDraft";
 import FlightLookup, { pendingLookup } from "./FlightLookup";
+import { RecordingResults } from "./RecordingResults";
+import { recordingsByRoute } from "./recordings";
+import { PlaybackControls, useRoutePlayback } from "./RoutePlayback";
 import { config } from "./passengerAuth";
 import type { ScheduledFlight } from "./flightSchedule";
 import Timeline from "./Timeline";
@@ -79,6 +82,8 @@ export default function App() {
   const [departure, setDeparture] = useState("");
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [point, setPoint] = useState(0);
+  const playback = useRoutePlayback(forecast?.samples, point, setPoint);
+  const stopPlayback = playback.stop;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -115,6 +120,7 @@ export default function App() {
       schedule?: ScheduledFlight,
     ) => {
       flightRequest.current?.abort();
+      stopPlayback();
       const ctrl = new AbortController();
       flightRequest.current = ctrl;
       setLoading(true);
@@ -153,7 +159,7 @@ export default function App() {
       }
       return false;
     },
-    [],
+    [stopPlayback],
   );
   useEffect(() => {
     const ctrl = new AbortController();
@@ -238,6 +244,7 @@ export default function App() {
       ? catalog?.latest
       : catalog?.replays.find((r) => r.runId === source);
   const formExpanded = editing || !forecast;
+  const routeRecordings = recordingsByRoute(origin?.code, dest?.code);
   const themeAction =
     theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
   return (
@@ -287,7 +294,7 @@ export default function App() {
             <h1>Flight forecast</h1>
             <p className="forecast-intro">
               European routes · 36-hour forecast window
-              <a href="/replay">Replay a recorded flight</a>
+              <a href="/recordings">Search recorded flights</a>
             </p>
           </div>
           {catalog && (
@@ -363,40 +370,39 @@ export default function App() {
                 </button>
               )}
             </div>
-            {lookupEnabled && (
-              <div
-                className="lookup-modes"
-                role="group"
-                aria-label="Search flights by"
+            <div
+              className="lookup-modes"
+              role="group"
+              aria-label="Search flights by"
+            >
+              <button
+                type="button"
+                aria-pressed={!byNumber}
+                onClick={() => {
+                  setByNumber(false);
+                  setEditing(true);
+                }}
               >
-                <button
-                  type="button"
-                  aria-pressed={!byNumber}
-                  onClick={() => {
-                    setByNumber(false);
-                    setEditing(true);
-                  }}
-                >
-                  Airports
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={byNumber}
-                  onClick={() => {
-                    setByNumber(true);
-                    setEditing(true);
-                  }}
-                >
-                  Flight number
-                </button>
-              </div>
-            )}
-            {lookupEnabled && byNumber ? (
+                Airports
+              </button>
+              <button
+                type="button"
+                aria-pressed={byNumber}
+                onClick={() => {
+                  setByNumber(true);
+                  setEditing(true);
+                }}
+              >
+                Flight number
+              </button>
+            </div>
+            {byNumber ? (
               <div id="flight-form">
                 <FlightLookup
                   run={meta}
                   live={source === "latest"}
                   onForecast={useSchedule}
+                  schedulesEnabled={lookupEnabled}
                 />
               </div>
             ) : (
@@ -490,6 +496,15 @@ export default function App() {
                 )}
               </form>
             )}
+            {!byNumber && routeRecordings.length > 0 && (
+              <section
+                className="recording-matches"
+                aria-label="Recorded flights on this route"
+              >
+                <h3>Recorded flights on this route</h3>
+                <RecordingResults flights={routeRecordings} />
+              </section>
+            )}
             <div className="data-note" data-replay={source !== "latest"}>
               <Globe2 size={16} />
               <div>
@@ -562,7 +577,7 @@ export default function App() {
                       origin={forecast.origin}
                       destination={forecast.destination}
                       selected={point}
-                      onSelect={setPoint}
+                      onSelect={playback.select}
                       observations={visibleWeather}
                     />
                   </Suspense>
@@ -575,6 +590,13 @@ export default function App() {
                     (s) => s.category === "unavailable",
                   ) && <LevelButton level="unavailable" marker />}
                 </div>
+                {forecast.mode === "replay" && !loading && (
+                  <PlaybackControls
+                    playback={playback}
+                    current={forecast.samples[point]}
+                    recorded={false}
+                  />
+                )}
               </>
             ) : (
               <div className="empty-map" role={error ? "alert" : "status"}>
@@ -598,8 +620,9 @@ export default function App() {
           <Timeline
             forecast={forecast}
             index={point}
-            onSelect={setPoint}
+            onSelect={playback.select}
             observations={nearbyWeather}
+            playing={playback.playing}
           />
         )}
         <footer className="foot">

@@ -4,12 +4,23 @@ const App = lazy(() => import("./App"));
 const Passengers = lazy(() => import("./Passengers"));
 const RouteHistory = lazy(() => import("./RouteHistory"));
 const RecordedFlight = lazy(() => import("./RecordedFlight"));
-const pages = ["/", "/flights", "/demo", "/health", "/history", "/replay"];
+const RecordingSearch = lazy(() => import("./RecordingSearch"));
+const pages = [
+  "/",
+  "/flights",
+  "/demo",
+  "/health",
+  "/history",
+  "/replay",
+  "/recordings",
+];
+const currentPage = () => location.pathname + location.search;
 export default function Router() {
-  const [path, setPath] = useState(location.pathname),
+  const [page, setPath] = useState(currentPage),
     [error, setError] = useState("");
+  const [path, query = ""] = page.split("?");
   useEffect(() => {
-    const update = () => setPath(location.pathname);
+    const update = () => setPath(currentPage());
     const anchor = (e: MouseEvent) => {
       const a = e.target instanceof Element ? e.target.closest("a") : null;
       if (
@@ -29,19 +40,19 @@ export default function Router() {
       if (
         to.origin !== location.origin ||
         !pages.includes(to.pathname) ||
-        to.search ||
+        (to.search && !["/replay", "/recordings"].includes(to.pathname)) ||
         to.hash
       )
         return;
       e.preventDefault();
-      history.pushState(null, "", to.pathname);
-      setPath(to.pathname);
+      history.pushState(null, "", to.pathname + to.search);
+      setPath(currentPage());
       window.scrollTo(0, 0);
     };
     const inbox = (e: MessageEvent) => {
       if (e.data?.type === "open-inbox") {
         history.pushState(null, "", "/flights?view=inbox");
-        setPath("/flights");
+        setPath(currentPage());
         setVersion((n) => n + 1);
       }
     };
@@ -57,7 +68,7 @@ export default function Router() {
         if (!c.auth) throw Error("Sign-in is unavailable.");
         const p = await finishSignIn(c.auth, url);
         history.replaceState(null, "", p);
-        setPath(location.pathname);
+        setPath(currentPage());
         setVersion((n) => n + 1);
       })().catch((e) => setError(e.message));
     }
@@ -68,10 +79,19 @@ export default function Router() {
     };
   }, []);
   const [version, setVersion] = useState(0);
+  if (path === "/recordings")
+    return (
+      <Suspense fallback={<main>Loading recorded flights…</main>}>
+        <RecordingSearch key={page} />
+      </Suspense>
+    );
   if (path === "/replay")
     return (
       <Suspense fallback={<main>Loading the recorded flight…</main>}>
-        <RecordedFlight />
+        <RecordedFlight
+          key={page}
+          id={new URLSearchParams(query).get("flight")}
+        />
       </Suspense>
     );
   if (path === "/history")

@@ -75,7 +75,7 @@ export default function RouteHistory() {
         <h1>Route history</h1>
         <p className="history-intro">
           Explore five archived November 2026 forecasts and the aircraft reports
-          recorded nearby. <a href="/replay">Replay a recorded flight</a>
+          recorded nearby. <a href="/recordings">Search recorded flights</a>
         </p>
         <label className="history-field">
           Route
