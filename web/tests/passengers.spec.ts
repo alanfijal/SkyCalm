@@ -125,10 +125,16 @@ test("saved flights and historical inbox updates explain their own levels; deliv
 }) => {
   await provider(page);
   let detailed = false;
+  let rejectWrite = false;
   await page.route("**/api/me**", async (route) => {
     if (route.request().method() === "PUT") {
       const data = route.request().postDataJSON();
       expect(data.channel).toBe("explainAlerts");
+      if (rejectWrite)
+        return route.fulfill({
+          status: 503,
+          json: { message: "Try again later." },
+        });
       detailed = data.enabled;
     }
     return route.fulfill({
@@ -182,9 +188,14 @@ test("saved flights and historical inbox updates explain their own levels; deliv
   await page.getByRole("button", { name: "Account", exact: true }).click();
   const choice = page.getByRole("checkbox", { name: /Show turbulence levels/ });
   await expect(choice).not.toBeChecked();
-  await choice.check();
+  // The control reflects the persisted value after the server confirms a write.
+  await choice.click();
   await expect(choice).toBeChecked();
-  await choice.uncheck();
+  await choice.click();
+  await expect(choice).not.toBeChecked();
+  rejectWrite = true;
+  await choice.click();
+  await expect(page.getByRole("alert")).toBeVisible();
   await expect(choice).not.toBeChecked();
 });
 
