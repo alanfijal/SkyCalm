@@ -32,7 +32,7 @@ import { RecordingResults } from "./RecordingResults";
 import { recordingsByRoute } from "./recordings";
 import { PlaybackControls, useRoutePlayback } from "./RoutePlayback";
 import { config } from "./passengerAuth";
-import type { ScheduledFlight } from "./flightSchedule";
+import { archiveForDeparture, type ScheduledFlight } from "./flightSchedule";
 import Timeline from "./Timeline";
 import WeatherLayers from "./WeatherLayers";
 import { nearby, type LayerChoice } from "./observations";
@@ -216,7 +216,7 @@ export default function App() {
     setDeparture(when);
     if (origin && dest) void load(origin, dest, when, selection);
   }
-  async function useSchedule(f: ScheduledFlight) {
+  async function useSchedule(f: ScheduledFlight, archiveId?: string) {
     const [from, to] = await Promise.all(
       [f.departure, f.arrival].map(async (stop) => {
         const result = await getJson<{ airports: Airport[] }>("/api/airports", {
@@ -232,7 +232,8 @@ export default function App() {
     setOrigin(from);
     setDest(to);
     setDeparture(when);
-    if (await load(from, to, when, source, f)) setEditing(false);
+    if (archiveId) setSource(archiveId);
+    if (await load(from, to, when, archiveId ?? source, f)) setEditing(false);
   }
   const dirty =
     forecast &&
@@ -403,6 +404,7 @@ export default function App() {
                   live={source === "latest"}
                   onForecast={useSchedule}
                   schedulesEnabled={lookupEnabled}
+                  replays={catalog?.replays ?? []}
                 />
               </div>
             ) : (
@@ -410,12 +412,22 @@ export default function App() {
                 id="flight-form"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (!origin || !dest || !departure || !source) return;
+                  const archive = archiveForDeparture(
+                    meta,
+                    source === "latest",
+                    catalog?.replays ?? [],
+                    departure + ":00Z",
+                    Date.now(),
+                  );
+                  if (archive) setSource(archive.runId);
                   if (
-                    origin &&
-                    dest &&
-                    departure &&
-                    source &&
-                    (await load(origin, dest, departure, source))
+                    await load(
+                      origin,
+                      dest,
+                      departure,
+                      archive?.runId ?? source,
+                    )
                   ) {
                     setEditing(false);
                     if (editButton.current?.offsetWidth)

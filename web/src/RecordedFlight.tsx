@@ -3,7 +3,13 @@ import { ArrowLeft } from "lucide-react";
 import RouteGlobe from "./RouteGlobe";
 import Timeline from "./Timeline";
 import { forecastLevels, LevelButton } from "./CabinGuide";
-import { clock, duration, fetchWithRetry, type Forecast } from "./types";
+import {
+  clock,
+  dateLabel,
+  duration,
+  fetchWithRetry,
+  type Forecast,
+} from "./types";
 import type { WeatherItem } from "./observations";
 import {
   defaultRecordingId,
@@ -38,7 +44,7 @@ function Player({
   const date = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "long",
     timeZone: "UTC",
-  }).format(new Date(flight.departure));
+  }).format(new Date(entry.localDate + "T12:00:00Z"));
 
   return (
     <>
@@ -92,8 +98,8 @@ function Player({
         <p>
           <a href={flight.sourceUrl}>ADSB.lol</a> recorded {flight.positions}{" "}
           positions and barometric altitudes for {flight.callsign}. Colours show
-          the NOAA GFS turbulence forecast issued at {clock(flight.run.issued)}{" "}
-          UTC that day.
+          the NOAA GFS turbulence forecast issued on{" "}
+          {dateLabel(flight.run.issued)} at {clock(flight.run.issued)} UTC.
         </p>
         <p>
           <a href={"/data/recorded-flight/" + entry.id + ".csv"} download>

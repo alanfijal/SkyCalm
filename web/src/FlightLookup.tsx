@@ -3,6 +3,7 @@ import { ArrowRight, Search } from "lucide-react";
 import { config, signedIn, signIn } from "./passengerAuth";
 import {
   airportTime,
+  archiveForDeparture,
   findFlights,
   forecastIssue,
   localDate,
@@ -44,10 +45,12 @@ export default function FlightLookup({
   live,
   onForecast,
   schedulesEnabled,
+  replays,
 }: {
   run: Run | null | undefined;
   live: boolean;
-  onForecast: (f: ScheduledFlight) => Promise<void>;
+  onForecast: (f: ScheduledFlight, archiveId?: string) => Promise<void>;
+  replays: Run[];
   schedulesEnabled: boolean;
 }) {
   const [number, setNumber] = useState(() => pendingLookup()?.number ?? "");
@@ -208,7 +211,20 @@ export default function FlightLookup({
             </p>
           )}
           {result.flights.map((f) => {
-            const reason = forecastIssue(f, run, live, Date.now());
+            const now = Date.now();
+            const archived = archiveForDeparture(
+              run,
+              live,
+              replays,
+              f.departure.time.utc,
+              now,
+            );
+            const reason = forecastIssue(
+              f,
+              archived ?? run,
+              live && !archived,
+              now,
+            );
             const recordedLegs = recordingsByNumber(
               f.number,
               f.departure.time.local.slice(0, 10),
@@ -283,7 +299,7 @@ export default function FlightLookup({
                     type="button"
                     onClick={() => {
                       setError("");
-                      void onForecast(f).catch((e) =>
+                      void onForecast(f, archived?.runId).catch((e) =>
                         setError(
                           e instanceof Error
                             ? e.message
@@ -292,7 +308,9 @@ export default function FlightLookup({
                       );
                     }}
                   >
-                    {live ? "View forecast" : "View replay forecast"}
+                    {live && !archived
+                      ? "View forecast"
+                      : "View replay forecast"}
                   </button>
                 )}
                 {canSave && (

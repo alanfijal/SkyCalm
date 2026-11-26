@@ -24,6 +24,27 @@ export interface LookupResult {
   cached: boolean;
 }
 
+export function archiveForDeparture(
+  selected: Run | null | undefined,
+  live: boolean,
+  replays: Run[],
+  departure: string,
+  now: number,
+): Run | undefined {
+  const when = Date.parse(departure);
+  const covers = (r: Run) =>
+    Date.parse(r.issued) <= when && when <= Date.parse(r.validUntil);
+  if (
+    selected &&
+    covers(selected) &&
+    (!live || (when >= now - 300000 && now <= Date.parse(selected.validUntil)))
+  )
+    return;
+  return replays
+    .filter(covers)
+    .sort((a, b) => Date.parse(b.issued) - Date.parse(a.issued))[0];
+}
+
 export async function findFlights(
   number: string,
   date: string,
