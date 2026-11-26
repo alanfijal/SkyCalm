@@ -17,11 +17,13 @@ export default function Timeline({
   index,
   onSelect,
   observations,
+  playing = false,
 }: {
   forecast: Forecast;
   index: number;
   onSelect: (i: number) => void;
   observations: WeatherItem[] | null;
+  playing?: boolean;
 }) {
   const { samples, origin, destination } = forecast;
   const explain = useCabinGuide();
@@ -135,7 +137,7 @@ export default function Timeline({
             see how it may feel.
           </p>
         </div>
-        <div className="sample-detail" aria-live="polite">
+        <div className="sample-detail" aria-live={playing ? "off" : "polite"}>
           <div className="detail-heading">
             <LevelButton level={p.category} marker>
               <strong>{peak}</strong>

@@ -86,7 +86,7 @@ resource "aws_cloudfront_distribution" "web" {
 locals {
   mime_types = {
     html  = "text/html; charset=utf-8", css = "text/css", js = "text/javascript",
-    json  = "application/json", jsonl = "application/x-ndjson", geojson = "application/geo+json", svg = "image/svg+xml",
+    json  = "application/json", jsonl = "application/x-ndjson", geojson = "application/geo+json", svg = "image/svg+xml", csv = "text/csv; charset=utf-8",
     woff2 = "font/woff2", txt = "text/plain; charset=utf-8", png = "image/png", webmanifest = "application/manifest+json"
   }
   site_files = setsubtract(fileset(var.web_directory, "**"), ["config.json"])

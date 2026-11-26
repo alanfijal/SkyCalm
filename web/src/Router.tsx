@@ -3,7 +3,8 @@ import { config, finishSignIn } from "./passengerAuth";
 const App = lazy(() => import("./App"));
 const Passengers = lazy(() => import("./Passengers"));
 const RouteHistory = lazy(() => import("./RouteHistory"));
-const pages = ["/", "/flights", "/demo", "/health", "/history"];
+const RecordedFlight = lazy(() => import("./RecordedFlight"));
+const pages = ["/", "/flights", "/demo", "/health", "/history", "/replay"];
 export default function Router() {
   const [path, setPath] = useState(location.pathname),
     [error, setError] = useState("");
@@ -67,6 +68,12 @@ export default function Router() {
     };
   }, []);
   const [version, setVersion] = useState(0);
+  if (path === "/replay")
+    return (
+      <Suspense fallback={<main>Loading the recorded flight…</main>}>
+        <RecordedFlight />
+      </Suspense>
+    );
   if (path === "/history")
     return (
       <Suspense fallback={<main>Loading route history…</main>}>

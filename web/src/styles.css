@@ -220,6 +220,17 @@ h2 {
   color: var(--text-secondary);
   font-size: 0.9375rem;
 }
+.forecast-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.85rem;
+}
+.forecast-intro a,
+.history-intro a {
+  color: var(--accent);
+  text-underline-offset: 0.18em;
+}
 .source-control {
   display: flex;
   align-items: center;

@@ -285,7 +285,10 @@ export default function App() {
         <div className="page-title">
           <div>
             <h1>Flight forecast</h1>
-            <p>European routes · 36-hour forecast window</p>
+            <p className="forecast-intro">
+              European routes · 36-hour forecast window
+              <a href="/replay">Replay a recorded flight</a>
+            </p>
           </div>
           {catalog && (
             <div className="source-control" data-replay={source !== "latest"}>
