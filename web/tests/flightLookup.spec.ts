@@ -34,7 +34,7 @@ test("a schedule on the selected replay uses the actual departure and arrival", 
       },
     }),
   );
-  await page.goto("/");
+  await page.goto("/?demo=lookup");
   await page.locator("select").first().selectOption("gfs-20261124-12");
   await page
     .getByRole("button", { name: "Flight number", exact: true })
@@ -43,6 +43,21 @@ test("a schedule on the selected replay uses the actual departure and arrival", 
   await page.getByLabel("Departure date (local)").fill(day);
   await page.getByRole("button", { name: "Find flight" }).click();
   await expect(page.locator(".schedule-card")).toContainText("Not listed");
+  const supplier = "https://aerodatabox.com/";
+  await page
+    .context()
+    .route(supplier, (route) =>
+      route.fulfill({ contentType: "text/html", body: "Schedule provider" }),
+    );
+  const referral = page
+    .context()
+    .waitForEvent("request", (r) => r.url() === supplier);
+  const providerTab = page.waitForEvent("popup");
+  await page.getByRole("link", { name: "AeroDataBox" }).click();
+  expect((await referral).headers().referer).toBe(
+    new URL(page.url()).origin + "/",
+  );
+  await (await providerTab).close();
   const routed = page.waitForResponse((r) => {
     const u = new URL(r.url());
     return (

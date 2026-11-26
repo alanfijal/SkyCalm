@@ -90,12 +90,18 @@ export default function FlightLookup({
         aria-label="Flight number search"
         onSubmit={(e) => {
           e.preventDefault();
-          void search(number, date);
+          const fields = new FormData(e.currentTarget);
+          const flightNumber = String(fields.get("number") ?? "").toUpperCase();
+          const departureDate = String(fields.get("date") ?? "");
+          setNumber(flightNumber);
+          setDate(departureDate);
+          void search(flightNumber, departureDate);
         }}
       >
         <label>
           Flight number
           <input
+            name="number"
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
@@ -112,6 +118,7 @@ export default function FlightLookup({
         <label>
           Departure date (local)
           <input
+            name="date"
             type="date"
             required
             value={date}
@@ -202,7 +209,12 @@ export default function FlightLookup({
           })}
           <p className="schedule-source">
             Schedules from{" "}
-            <a href="https://aerodatabox.com/" target="_blank" rel="noreferrer">
+            <a
+              href="https://aerodatabox.com/"
+              target="_blank"
+              rel="noopener"
+              referrerPolicy="strict-origin"
+            >
               AeroDataBox
             </a>
           </p>
