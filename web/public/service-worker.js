@@ -7,7 +7,9 @@ self.addEventListener("push", (event) => {
   }
   event.waitUntil(
     self.registration.showNotification("SkyCalm", {
-      body: update.body || "A flight update is waiting in your inbox.",
+      body:
+        update.body ||
+        "A flight update is waiting in your inbox. Keep your seatbelt fastened when seated.",
       icon: "/icon-192.png",
       tag: update.tag,
       data: { path: "/flights?view=inbox" },

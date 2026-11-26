@@ -38,12 +38,20 @@ FLIGHT_FIELDS = (
     "watch",
     "assessment",
 )
-NOTICE_FIELDS = ("noticeId", "kind", "created", "slot", "delivery", "deliveredAt")
+NOTICE_FIELDS = ("noticeId", "kind", "created", "slot", "delivery", "deliveredAt", "peak")
 SEEDS = (("EDI", "OPO", 12), ("AMS", "LHR", 26), ("BCN", "ARN", 30))
 
 
 def public_row(row, fields):
     return {k: row[k] for k in fields if k in row}
+
+
+def public_preferences(prefs: dict) -> dict[str, bool]:
+    return {
+        "push": bool(prefs.get("device")),
+        "email": bool(prefs.get("email")),
+        "explainAlerts": prefs.get("explainAlerts") is True,
+    }
 
 
 def view(store, owner, now):
@@ -56,7 +64,7 @@ def view(store, owner, now):
             key=lambda n: n["created"],
             reverse=True,
         ),
-        "preferences": {"push": bool(prefs.get("device")), "email": bool(prefs.get("email"))},
+        "preferences": public_preferences(prefs),
     }
 
 
@@ -245,7 +253,7 @@ def dispatch(event, store, clients=runtime.client, now=None):
             "closing": True,
             "flights": [],
             "inbox": [],
-            "preferences": {"push": False, "email": False},
+            "preferences": public_preferences({}),
         }
     if account.get("erasing") and not erasing:
         raise RequestError("closed", "This account is closed.", 410)
@@ -306,6 +314,8 @@ def dispatch(event, store, clients=runtime.client, now=None):
                 prefs["email"] = verified_email(event, clients)
             else:
                 prefs.pop("email", None)
+        elif key == "explainAlerts" and isinstance(body.get("enabled"), bool):
+            prefs["explainAlerts"] = body["enabled"]
         elif key == "push" and "subscription" in body:
             if body["subscription"] is None:
                 prefs.pop("device", None)
@@ -314,7 +324,7 @@ def dispatch(event, store, clients=runtime.client, now=None):
         else:
             raise RequestError("invalid_preferences", "Choose a delivery channel.")
         store.preferences(owner, prefs, previous=account.get("prefs"))
-        return {"push": bool(prefs.get("device")), "email": bool(prefs.get("email"))}
+        return public_preferences(prefs)
     match = re.fullmatch(r"/api/me/flights/([1-8])", path)
     if match:
         slot = int(match[1])

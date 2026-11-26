@@ -22,6 +22,7 @@ services/flights/local.py
 services/pipeline/operator*.py
 !services/delivery/
 !services/delivery/index.mjs
+!services/delivery/turbulence.json
 !services/delivery/package*.json
 !grid/
 !grid/__init__.py

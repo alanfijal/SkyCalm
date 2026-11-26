@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { send } from "./index.mjs";
+import guide from "./turbulence.json" with { type: "json" };
 const packet = {
   subscription: { endpoint: "https://fcm.googleapis.com/fcm/send/example" },
   test: true,
@@ -35,6 +36,36 @@ test("expired subscriptions and recoverable failures are distinguished", async (
       },
     );
     assert.equal(out.result, expected);
+  }
+});
+test("lock-screen copy uses only the approved level and keeps the trip private", async () => {
+  for (const level of [
+    "smooth",
+    "light",
+    "moderate",
+    "severe",
+    "unavailable",
+    "__proto__",
+    undefined,
+  ]) {
+    await send(
+      { ...packet, level, origin: "EDI", flightNumber: "SK1234" },
+      async () => ({}),
+      async (_sub, data) => {
+        const { body } = JSON.parse(data);
+        assert.ok(body.includes(guide.seatbelt));
+        assert.ok(body.length < 175);
+        assert.doesNotMatch(body, /EDI|SK1234/);
+        if (["smooth", "light", "moderate", "severe"].includes(level)) {
+          assert.ok(body.includes(guide.levels[level].summary));
+        } else {
+          assert.equal(
+            body,
+            "A test update is waiting in your inbox. " + guide.seatbelt,
+          );
+        }
+      },
+    );
   }
 });
 test("only supported push services receive a request", async () => {

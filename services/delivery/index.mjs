@@ -1,4 +1,5 @@
 import { sendNotification } from "web-push";
+import guide from "./turbulence.json" with { type: "json" };
 import {
   GetSecretValueCommand,
   SecretsManagerClient,
@@ -20,7 +21,11 @@ async function signingKey() {
   return cached.value;
 }
 
-export async function send({ subscription, test, tag }, getKey, transmit) {
+export async function send(
+  { subscription, test, tag, level },
+  getKey,
+  transmit,
+) {
   const target = new URL(subscription.endpoint);
   const provider =
     target.hostname === "fcm.googleapis.com" ||
@@ -40,11 +45,15 @@ export async function send({ subscription, test, tag }, getKey, transmit) {
     throw new Error("Unsupported push endpoint");
   }
   const vapidDetails = await getKey();
+  const cabin = ["smooth", "light", "moderate", "severe"].includes(level)
+    ? guide.levels[level]
+    : undefined;
+  const message = cabin
+    ? `${test ? "Test forecast" : "Forecast"} · ${cabin.label}. ${cabin.summary}`
+    : `A ${test ? "test " : "flight "}update is waiting in your inbox.`;
   const payload = JSON.stringify({
     title: "SkyCalm",
-    body: test
-      ? "A test update is waiting in your inbox."
-      : "A flight update is waiting in your inbox.",
+    body: `${message} ${guide.seatbelt}`,
     tag,
   });
   try {

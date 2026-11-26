@@ -185,7 +185,11 @@ def test_forecast_outbox_and_three_hour_limit(store):
     rough = {"peak": "moderate", "firstRough": 20}
     store.record_forecast(get(), "gfs-1", base, T)
     store.record_forecast(get(), "gfs-2", rough, T + 1)
+    first = api.view(store, OWNER, T + 1)["inbox"][0]
+    assert first["peak"] == "moderate"
     store.record_forecast(get(), "gfs-3", base, T + 2)
+    assert get()["assessment"]["peak"] == "smooth"
+    assert api.view(store, OWNER, T + 2)["inbox"][0] == first
     store.record_forecast(get(), "gfs-4", rough, T + 10802)
     assert len(api.view(store, OWNER, T)["inbox"]) == 2
     with pytest.raises(RequestError):
@@ -200,6 +204,7 @@ def test_retry_and_old_reminder_after_edit(store):
     worker.process(store, "reminder", msg, T, 1)
     worker.process(store, "reminder", msg, T, 2)
     assert len(api.view(store, OWNER, T)["inbox"]) == 1
+    assert "peak" not in api.view(store, OWNER, T)["inbox"][0]
     api.dispatch(
         http(
             "/api/me/flights/1", "PUT", {**inputs(), "previous": first["revision"]}, scope=api.WRITE
@@ -209,6 +214,26 @@ def test_retry_and_old_reminder_after_edit(store):
     )
     worker.process(store, "reminder", {**msg, "hours": 3}, T, 1)
     assert len(api.view(store, OWNER, T)["inbox"]) == 1
+
+
+def test_alert_details_require_explicit_preference_and_notification_scope(store):
+    def toggle(value, scope=api.PREF):
+        request = http(
+            "/api/me/preferences",
+            "PUT",
+            {"channel": "explainAlerts", "enabled": value},
+            scope=scope,
+        )
+        return api.dispatch(request, store, now=NOW)
+
+    assert api.view(store, OWNER, T)["preferences"]["explainAlerts"] is False
+    with pytest.raises(RequestError):
+        toggle("true")
+    with pytest.raises(RequestError):
+        toggle(True, api.READ)
+    assert toggle(True) == {"push": False, "email": False, "explainAlerts": True}
+    assert api.view(store, OTHER, T)["preferences"]["explainAlerts"] is False
+    assert toggle(False)["explainAlerts"] is False
 
 
 def test_scheduler_marks_one_time_reminders_and_skips_past(store):

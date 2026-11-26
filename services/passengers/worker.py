@@ -1,4 +1,4 @@
-"""Durable passenger work. Queue payloads carry lookup keys; external alerts are generic."""
+"""Durable passenger work. Queue payloads carry lookup keys. Detailed alerts require opt-in."""
 
 import json
 import logging
@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
 from services.forecast.api import respond
+from services.passengers.comfort import alert_level, email_body
 from services.passengers.domain import snapshot
 from services.passengers.store import PassengerStore, decode, encode
 from services.pipeline import runtime
@@ -187,6 +188,7 @@ def deliver(store, owner, sk, now, attempt):
                     "subscription": prefs["device"],
                     "test": notice["kind"].startswith("test-"),
                     "tag": notice["noticeId"],
+                    "level": alert_level(notice, prefs),
                 }
             ).encode(),
         )
@@ -203,6 +205,10 @@ def deliver(store, owner, sk, now, attempt):
             except Exception:
                 if store.get(owner, "account").get("prefs") == prefs:
                     raise
+        if result != "push":
+            # A rejected push can outlive a passenger's delivery preferences.
+            account = store.get(owner, "account")
+            prefs = {} if account.get("erasing") else account.get("prefs", {})
     if result != "push" and prefs.get("email"):
         runtime.client("sesv2").send_email(
             FromEmailAddress=os.environ["SES_FROM"],
@@ -212,9 +218,7 @@ def deliver(store, owner, sk, now, attempt):
                     "Subject": {"Data": "SkyCalm flight update"},
                     "Body": {
                         "Text": {
-                            "Data": "A "
-                            + ("test " if notice["kind"].startswith("test-") else "")
-                            + "update is waiting in your SkyCalm inbox. Open SkyCalm to view it."
+                            "Data": email_body(notice, prefs, os.environ.get("INBOX_URL", "")),
                         }
                     },
                 }
@@ -247,7 +251,13 @@ def process(store, kind, data, now, attempt):
         hours = data["hours"]
         if hours not in (3, 24) or flight["departureEpoch"] <= now:
             return
-        return store.notice(flight, f"reminder-{hours}h", str(hours), now)
+        return store.notice(
+            flight,
+            f"reminder-{hours}h",
+            str(hours),
+            now,
+            peak=(flight.get("assessment") or {}).get("peak"),
+        )
     if flight["watch"] == "demo" and flight.get("lastRun") != data["requestId"]:
         previous = (flight.get("assessment") or {}).get("peak")
         return store.record_forecast(

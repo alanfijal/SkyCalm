@@ -37,6 +37,6 @@ resource "aws_lambda_function" "passenger" {
       WORK_QUEUE     = aws_sqs_queue.passenger_work.url, WORK_ARN = aws_sqs_queue.passenger_work.arn, DEAD_ARN = aws_sqs_queue.passenger_dead.arn,
       SCHEDULE_GROUP = aws_scheduler_schedule_group.passengers.name, SCHEDULER_ROLE = aws_iam_role.reminders.arn,
       PUSH_FUNCTION  = "${local.passenger_name}-push-img", HEALTH_QUEUES = jsonencode(local.health_queues)
-    }, each.key == "api" ? { CLASSROOM_EMAIL = local.passenger_login_email } : {}, each.key == "api" && var.enable_flight_lookup ? { FLIGHT_LOOKUP_TABLE = aws_dynamodb_table.flight_lookup[0].name, FLIGHT_LOOKUP_PARAMETER = local.flight_parameter } : {})
+    }, each.key == "api" ? { CLASSROOM_EMAIL = local.passenger_login_email } : {}, each.key == "worker" ? { INBOX_URL = "${local.callback}flights?view=inbox" } : {}, each.key == "api" && var.enable_flight_lookup ? { FLIGHT_LOOKUP_TABLE = aws_dynamodb_table.flight_lookup[0].name, FLIGHT_LOOKUP_PARAMETER = local.flight_parameter } : {})
   }
 }
