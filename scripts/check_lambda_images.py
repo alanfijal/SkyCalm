@@ -32,6 +32,7 @@ def runtime(target, handler):
         "-d",
         "--network=none",
         "--read-only",
+        "--user=10001:10001",
         "--tmpfs",
         "/tmp",
         "-e",
