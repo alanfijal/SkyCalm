@@ -75,11 +75,6 @@ export default function AirportField({ label, selected, onChange }: Props) {
       <button
         type="button"
         className="airport-trigger"
-        aria-label={
-          (selected ? city(selected) + " " + selected.code : "Select airport") +
-          " · " +
-          label
-        }
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => {
@@ -88,8 +83,9 @@ export default function AirportField({ label, selected, onChange }: Props) {
         }}
       >
         <MapPin size={17} />
-        <span>{selected ? city(selected) : "Select airport"}</span>
+        <span>{selected ? city(selected) : "Select airport"}</span>{" "}
         <b>{selected?.code}</b>
+        <span className="sr-only"> {label}</span>
         <ChevronDown size={14} />
       </button>
       {open && (
