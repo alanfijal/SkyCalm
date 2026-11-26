@@ -13,15 +13,13 @@ for (const width of [360, 1440]) {
     await expect(page.getByText(/1 matching aircraft report$/)).toBeVisible();
     const report = page.locator(".recap-list li").first();
     await expect(report).toContainText("Light reported");
-    await report
-      .getByRole("button", { name: /^Light ·/ })
-      .first()
-      .click();
+    const level = report.getByRole("button", { name: /^Light ·/ }).first();
+    await level.click();
     await expect(page.getByRole("dialog")).toContainText("Small bumps");
     await page.keyboard.press("Escape");
-    const details = page.getByText("How reports are matched");
-    await details.focus();
-    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(level).toBeFocused();
+    await page.getByText("How reports are matched").press("Enter");
     await expect(page.getByText(/within 75 km, 45 minutes/)).toBeVisible();
     await page
       .getByRole("combobox", { name: "Route", exact: true })
