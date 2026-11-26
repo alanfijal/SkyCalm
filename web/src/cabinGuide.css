@@ -1,0 +1,118 @@
+.level-link {
+  display: inline;
+  border: 0;
+  border-radius: 0.2rem;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted var(--text-secondary);
+  text-underline-offset: 0.22em;
+  cursor: pointer;
+}
+.level-link:hover {
+  color: var(--accent);
+  text-decoration-style: solid;
+}
+.level-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.level-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  min-width: 0.6rem;
+  border-radius: 50%;
+}
+.level-link .level-dot {
+  margin-inline-end: 0.4rem;
+}
+.level-question {
+  margin-inline-start: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+.legend .level-link {
+  min-height: 1.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.cabin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--scrim);
+}
+.cabin-popover {
+  position: fixed;
+  z-index: 61;
+  --width: min(23rem, calc(100vw - 2rem));
+  width: var(--width);
+  max-height: calc(50dvh - 1rem);
+  overflow: auto;
+  left: clamp(1rem, var(--anchor-x), calc(100vw - var(--width) - 1rem));
+  top: clamp(0.75rem, calc(var(--anchor-edge) + 0.5rem), 51dvh);
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0.6rem 2rem var(--shadow);
+}
+.cabin-popover[data-above="true"] {
+  top: auto;
+  bottom: clamp(0.75rem, calc(var(--anchor-edge) + 0.5rem), 51dvh);
+}
+.cabin-popover h2,
+.cabin-guide-section dt {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.cabin-popover h2 {
+  font-size: 1.12rem;
+  margin: 0 2rem 0.65rem 0;
+}
+.cabin-popover p,
+.cabin-guide-section dd {
+  font-size: 0.93rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.cabin-popover .seatbelt-note,
+.cabin-guide-section .seatbelt-note {
+  margin: 0.85rem 0 0.4rem;
+  color: var(--text);
+}
+.cabin-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--accent);
+  font-size: 0.84rem;
+}
+.cabin-guide-section dl {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.65rem 0;
+}
+.cabin-guide-section dt {
+  font-weight: 650;
+}
+.cabin-guide-section dd {
+  margin: 0.15rem 0 0 1.15rem;
+}
+@media (max-width: 36rem), (max-height: 28rem) {
+  .cabin-popover,
+  .cabin-popover[data-above="true"] {
+    top: auto;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(26rem, calc(100vw - 1.5rem));
+    max-height: 85dvh;
+  }
+}

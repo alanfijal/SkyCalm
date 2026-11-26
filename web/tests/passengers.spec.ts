@@ -120,6 +120,74 @@ async function provider(
   return () => tokenRequests;
 }
 
+test("saved flights and historical inbox updates explain their own levels; delivery details require an opt-in", async ({
+  page,
+}) => {
+  await provider(page);
+  let detailed = false;
+  await page.route("**/api/me**", async (route) => {
+    if (route.request().method() === "PUT") {
+      const data = route.request().postDataJSON();
+      expect(data.channel).toBe("explainAlerts");
+      detailed = data.enabled;
+    }
+    return route.fulfill({
+      json: {
+        flights: [
+          {
+            slot: 1,
+            id: "sample",
+            revision: "1",
+            origin: "BCN",
+            destination: "ARN",
+            departure: "2026-11-24T12:00:00Z",
+            arrival: "2026-11-24T15:00:00Z",
+            watch: "demo",
+            assessment: { peak: "light" },
+          },
+        ],
+        inbox: [
+          {
+            noticeId: "with-level",
+            kind: "forecast-change",
+            peak: "moderate",
+            created: 1795523200,
+            delivery: "inbox",
+          },
+          {
+            noticeId: "old",
+            kind: "reminder-3h",
+            created: 1795523100,
+            delivery: "email",
+          },
+        ],
+        preferences: { push: false, email: false, explainAlerts: detailed },
+      },
+    });
+  });
+  await page.goto("/flights");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: /^Light ·/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Small bumps");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Inbox (2)", exact: true }).click();
+  const notices = page.locator(".pass-notice");
+  await expect(notices.nth(1).getByRole("button")).toHaveCount(0);
+  await notices
+    .first()
+    .getByRole("button", { name: /^Moderate ·/ })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("Firmer jolts");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Account", exact: true }).click();
+  const choice = page.getByRole("checkbox", { name: /Show turbulence levels/ });
+  await expect(choice).not.toBeChecked();
+  await choice.check();
+  await expect(choice).toBeChecked();
+  await choice.uncheck();
+  await expect(choice).not.toBeChecked();
+});
+
 test("a passenger signs in, saves a flight, exports and deletes the account", async ({
   page,
 }) => {

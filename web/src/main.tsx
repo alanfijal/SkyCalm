@@ -2,6 +2,11 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/dm-sans";
 import "./styles.css";
 import Router from "./Router";
-createRoot(document.getElementById("root")!).render(<Router />);
+import { CabinGuideProvider } from "./CabinGuide";
+createRoot(document.getElementById("root")!).render(
+  <CabinGuideProvider>
+    <Router />
+  </CabinGuideProvider>,
+);
 if ("serviceWorker" in navigator)
   navigator.serviceWorker.register("/service-worker.js").catch(() => {});

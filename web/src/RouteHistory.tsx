@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import {
-  clock,
-  dateLabel,
-  fetchWithRetry,
-  LABELS,
-  type Category,
-} from "./types";
+import { LevelButton } from "./CabinGuide";
+import { clock, dateLabel, fetchWithRetry, type Category } from "./types";
 import "./history.css";
 
 interface Report {
@@ -112,7 +107,7 @@ export default function RouteHistory() {
                   if (c === "unavailable" && !n) return null;
                   return (
                     <li key={c}>
-                      <span>{LABELS[c]}</span>
+                      <LevelButton level={c} />
                       <span className="history-track" aria-hidden="true">
                         <i
                           style={{
@@ -153,7 +148,7 @@ export default function RouteHistory() {
                 </select>
               </label>
               <p>
-                Peak forecast <strong>{LABELS[day.peak]}</strong> ·{" "}
+                Peak forecast <LevelButton level={day.peak} /> ·{" "}
                 {day.reports.length} matching aircraft{" "}
                 {day.reports.length === 1 ? "report" : "reports"}
               </p>
@@ -165,8 +160,9 @@ export default function RouteHistory() {
                         {r.source} · {clock(r.observed)} UTC
                       </b>
                       <span>
-                        {LABELS[r.reported]} reported · {LABELS[r.forecast]}{" "}
-                        forecast at the nearest sample
+                        <LevelButton level={r.reported} /> reported ·{" "}
+                        <LevelButton level={r.forecast} /> forecast at the
+                        nearest sample
                       </span>
                       <small>
                         {r.elapsed_minutes} min along the route ·{" "}

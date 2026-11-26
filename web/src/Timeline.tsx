@@ -1,6 +1,14 @@
 import { Clock3, Mountain, Wind } from "lucide-react";
+import { useRef } from "react";
+import {
+  guide,
+  knownLevel,
+  LevelButton,
+  LevelText,
+  useCabinGuide,
+} from "./CabinGuide";
 import { categoryColor } from "./theme";
-import { LABELS, clock, duration } from "./types";
+import { clock, duration } from "./types";
 import type { Forecast } from "./types";
 import type { WeatherItem } from "./observations";
 
@@ -16,9 +24,11 @@ export default function Timeline({
   observations: WeatherItem[] | null;
 }) {
   const { samples, origin, destination } = forecast;
+  const explain = useCabinGuide();
+  const press = useRef<{ x: number; y: number } | null>(null);
   const p = samples[index];
   const ratio = (index / (samples.length - 1)) * 100;
-  const peak = LABELS[p.category];
+  const peak = guide.levels[p.category].label;
   let detail = "This part of the route has insufficient weather data.";
   if (p.method === "ti1")
     detail = `Wind shear ${p.shear?.toFixed(1)} m/s per km · Ellrod index ${p.ti1?.toFixed(1)}`;
@@ -26,7 +36,8 @@ export default function Timeline({
     detail = `Surface CAPE ${p.cape?.toLocaleString("en-GB")} J/kg · climb/descent indicator`;
   if (p.method === "lightgbm") {
     detail = `Model v${forecast.modelVersion} · ${Math.round((p.probability ?? 0) * 100)}% estimated probability of ${p.category}.`;
-    if (p.driver) detail += ` The strongest contributing factor was ${p.driver}.`;
+    if (p.driver)
+      detail += ` The strongest contributing factor was ${p.driver}.`;
   }
   if (p.method === "horizon")
     detail = "This section falls beyond the 36-hour forecast window.";
@@ -43,7 +54,11 @@ export default function Timeline({
         </div>
         <span>{samples.length} sample points</span>
       </div>
-      {forecast.briefing && <p className="route-briefing">{forecast.briefing}</p>}
+      {forecast.briefing && (
+        <p className="route-briefing">
+          <LevelText text={forecast.briefing} />
+        </p>
+      )}
       <div className="timeline-layout">
         <div className="track-area">
           <div className="track-captions">
@@ -72,6 +87,43 @@ export default function Timeline({
               max={samples.length - 1}
               value={index}
               onChange={(e) => onSelect(Number(e.target.value))}
+              onPointerDown={(e) => {
+                press.current = { x: e.clientX, y: e.clientY };
+              }}
+              onPointerCancel={() => {
+                press.current = null;
+              }}
+              onPointerUp={(e) => {
+                const start = press.current;
+                press.current = null;
+                if (
+                  !start ||
+                  Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5
+                )
+                  return;
+                const bounds = e.currentTarget.getBoundingClientRect();
+                const band = Math.max(
+                  0,
+                  Math.min(
+                    samples.length - 1,
+                    Math.floor(
+                      ((e.clientX - bounds.left) / bounds.width) *
+                        (samples.length - 1),
+                    ),
+                  ),
+                );
+                onSelect(band);
+                explain(samples[band].category, e.currentTarget, {
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  explain(p.category, e.currentTarget);
+                }
+              }}
             />
           </div>
           <div className="track-times">
@@ -79,13 +131,18 @@ export default function Timeline({
             <span>{clock(samples.at(-1)!.at)} UTC</span>
           </div>
           <p className="timeline-hint">
-            Scrub the timeline or select a section on the map.
+            Drag to explore. Select a section or press Enter on the timeline to
+            see how it may feel.
           </p>
         </div>
         <div className="sample-detail" aria-live="polite">
           <div className="detail-heading">
-            <i style={{ background: categoryColor(p.category) }} />
-            <strong>{peak}</strong>
+            <LevelButton level={p.category} marker>
+              <strong>{peak}</strong>
+              <small className="level-question">
+                What does this feel like?
+              </small>
+            </LevelButton>
             <span>{p.phase}</span>
           </div>
           <div className="sample-facts">
@@ -98,7 +155,9 @@ export default function Timeline({
               {p.altitudeFt.toLocaleString("en-GB")} ft
             </span>
           </div>
-          <p>{detail}</p>
+          <p>
+            <LevelText text={detail} />
+          </p>
           {observations && (
             <div className="segment-weather">
               <b>Nearby observations</b>
@@ -107,7 +166,15 @@ export default function Timeline({
                   {observations.slice(0, 4).map((item) => (
                     <li key={item.id}>
                       {item.kind === "sigmet" ? "SIGMET " : ""}
-                      {item.source} · {item.intensity} · {clock(item.from)} UTC
+                      {item.source} ·{" "}
+                      <LevelButton
+                        level={
+                          knownLevel(item.intensity)
+                            ? item.intensity
+                            : "unreported"
+                        }
+                      />{" "}
+                      · {clock(item.from)} UTC
                     </li>
                   ))}
                 </ul>

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import guide from "../../services/delivery/turbulence.json" with { type: "json" };
 
 const replay = "gfs-20261124-12";
 
@@ -122,7 +124,10 @@ test("the palette follows the theme without moving the map or the selected point
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator("body")).toHaveCSS("color", "rgb(15, 23, 42)");
   await expect(
-    page.locator(".legend span").filter({ hasText: "Light" }).locator("i"),
+    page
+      .locator(".legend")
+      .getByRole("button", { name: /^Light ·/ })
+      .locator("i"),
   ).toHaveCSS("background-color", "rgb(184, 134, 11)");
   await expect(slider).toHaveValue("26");
   expect(await point.evaluate((el) => el.style.transform)).toBe(transform);
@@ -132,7 +137,10 @@ test("the palette follows the theme without moving the map or the selected point
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(
-    page.locator(".legend span").filter({ hasText: "Light" }).locator("i"),
+    page
+      .locator(".legend")
+      .getByRole("button", { name: /^Light ·/ })
+      .locator("i"),
   ).toHaveCSS("background-color", "rgb(244, 211, 94)");
 });
 
@@ -159,7 +167,64 @@ test("a visible route section stays selectable after resizing", async ({
     target.x + target.width / 2,
     target.y + target.height / 2,
   );
+  await expect(page.getByRole("dialog")).toContainText(guide.seatbelt);
+  await page.keyboard.press("Escape");
   await expect
     .poll(async () => Math.abs(Number(await slider.inputValue()) - 68))
     .toBeLessThanOrEqual(3);
 });
+
+for (const width of [360, 1280]) {
+  test(`passengers can explore each level and return to their timeline at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 860 });
+    await openReplay(page);
+    const dialog = page.getByRole("dialog");
+    const legend = page.locator(".legend");
+    for (const level of ["smooth", "light", "moderate", "severe"] as const) {
+      const copy = guide.levels[level];
+      const chip = legend.getByRole("button", {
+        name: copy.label + " · What does this feel like?",
+      });
+      await chip.click();
+      await expect(dialog).toContainText(copy.summary);
+      await expect(dialog).toContainText(copy.detail);
+      await expect(dialog).toContainText(guide.seatbelt);
+      await expect(dialog.getByRole("link", { name: /FAA/ })).toHaveAttribute(
+        "href",
+        guide.source,
+      );
+      if (level === "moderate") {
+        const bounds = (await dialog.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(861);
+        const audit = await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze();
+        expect(audit.violations).toEqual([]);
+      }
+      await page.keyboard.press("Escape");
+      await expect(chip).toBeFocused();
+    }
+    const slider = page.getByRole("slider");
+    await slider.fill("25");
+    await slider.press("ArrowRight");
+    await expect(slider).toHaveValue("26");
+    const level = (await slider.getAttribute("aria-valuetext"))!.split(", ")[1];
+    await slider.press("Enter");
+    await expect(dialog.getByRole("heading")).toContainText(level);
+    await dialog.getByRole("button", { name: "Close explanation" }).click();
+    await expect(slider).toBeFocused();
+    await slider.click({ position: { x: 3, y: 4 } });
+    await expect(dialog).toContainText(guide.seatbelt);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Forecast guide" }).click();
+    await expect(
+      dialog.getByRole("heading", { name: "What does turbulence feel like?" }),
+    ).toBeVisible();
+    await expect(dialog).toContainText(guide.levels.severe.detail);
+    await expect(dialog).toContainText("For passenger education only");
+  });
+}

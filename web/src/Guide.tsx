@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { BookOpen, X } from "lucide-react";
+import { CabinGuideSection } from "./CabinGuide";
 
 export default function Guide() {
   return (
@@ -21,6 +22,7 @@ export default function Guide() {
             A weather model estimates how the air may feel along an approximate
             flight path.
           </Dialog.Description>
+          <CabinGuideSection />
           <h3>The route</h3>
           <p>
             SkyCalm samples a great-circle path about every 25 km. It assumes

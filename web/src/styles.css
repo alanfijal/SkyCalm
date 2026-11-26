@@ -616,15 +616,10 @@ h2 {
   padding: 0.5rem var(--pad);
   border-block-start: 1px solid var(--border);
 }
-.legend span,
 .detail-heading {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-}
-.legend span {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
 }
 .legend i,
 .detail-heading i {
@@ -989,7 +984,9 @@ h2 {
   }
 }
 @media (max-width: 25rem) {
-  .nav-inner, .nav-actions, .brand {
+  .nav-inner,
+  .nav-actions,
+  .brand {
     gap: 0.25rem;
   }
   .nav-actions .guide-button > span {

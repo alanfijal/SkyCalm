@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useCabinGuide } from "./CabinGuide";
 import { MapLibreOverlay } from "@deck.gl/maplibre";
 import { PathLayer } from "@deck.gl/layers";
 import { Crosshair, Minus, Plus } from "lucide-react";
@@ -95,6 +96,7 @@ export default function RouteGlobe({
   onSelect,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
+  const explain = useCabinGuide();
   const select = useRef(onSelect);
   const route = useRef(samples);
   const plane = useRef<Marker | null>(null);
@@ -268,10 +270,6 @@ export default function RouteGlobe({
     function pick(event: MapMouseEvent) {
       // Evaluate in screen pixels so the hit area is constant at every zoom.
       const { x, y } = event.point;
-      const distanceTo = (p: Sample) => {
-        const screen = event.target.project([p.lon, p.lat]);
-        return Math.hypot(x - screen.x, y - screen.y);
-      };
       const hit = ribbons?.pickObject({
         x,
         y,
@@ -279,12 +277,12 @@ export default function RouteGlobe({
         layerIds: ["forecast-route"],
       });
       if (!hit?.picked) return;
-      const start = hit.index;
-      select.current(
-        distanceTo(samples[start]) < distanceTo(samples[start + 1])
-          ? start
-          : start + 1,
-      );
+      // Each painted leg uses its starting sample's category.
+      select.current(hit.index);
+      explain(samples[hit.index].category, event.target.getCanvas(), {
+        x: event.originalEvent.clientX,
+        y: event.originalEvent.clientY,
+      });
     }
 
     map.on("click", pick);
@@ -295,7 +293,7 @@ export default function RouteGlobe({
       marker.remove();
       plane.current = null;
     };
-  }, [map, samples, origin, destination]);
+  }, [map, samples, origin, destination, explain]);
 
   useEffect(() => {
     const marker = plane.current;

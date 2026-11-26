@@ -34,9 +34,9 @@ import Timeline from "./Timeline";
 import WeatherLayers from "./WeatherLayers";
 import { nearby, type LayerChoice } from "./observations";
 import { useObservations } from "./useObservations";
-import { applyTheme, categoryColor, type Theme } from "./theme";
+import { applyTheme, type Theme } from "./theme";
+import { forecastLevels, LevelButton } from "./CabinGuide";
 import {
-  LABELS,
   city,
   clock,
   dateLabel,
@@ -44,10 +44,9 @@ import {
   duration,
   getJson,
 } from "./types";
-import type { Airport, Catalog, Category, Forecast, Run } from "./types";
+import type { Airport, Catalog, Forecast, Run } from "./types";
 
 const RouteGlobe = lazy(() => import("./RouteGlobe"));
-const classes: Category[] = ["smooth", "light", "moderate", "severe"];
 const fmt = (d: Run) => dateLabel(d.issued) + " · " + clock(d.issued) + " UTC";
 
 export default function App() {
@@ -566,20 +565,12 @@ export default function App() {
                   </Suspense>
                 </div>
                 <div className="legend" aria-label="Intensity legend">
-                  {classes.map((c) => (
-                    <span key={c}>
-                      <i style={{ background: categoryColor(c) }} />
-                      {LABELS[c]}
-                    </span>
+                  {forecastLevels.map((c) => (
+                    <LevelButton key={c} level={c} marker />
                   ))}
                   {forecast.samples.some(
                     (s) => s.category === "unavailable",
-                  ) && (
-                    <span>
-                      <i style={{ background: categoryColor("unavailable") }} />
-                      Unavailable
-                    </span>
-                  )}
+                  ) && <LevelButton level="unavailable" marker />}
                 </div>
               </>
             ) : (
