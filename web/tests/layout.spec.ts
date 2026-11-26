@@ -5,12 +5,16 @@ import guide from "../../services/delivery/turbulence.json" with { type: "json" 
 const replay = "gfs-20261124-12";
 
 async function openReplay(page: Page) {
-  await page.goto("/");
+  await page.goto("/forecast");
   await page.getByLabel("Weather source").selectOption(replay);
-  await expect(page.getByRole("slider")).toHaveAttribute("max", "93");
+  await expect(
+    page.locator('input[aria-label="Point along the route"]'),
+  ).toHaveAttribute("max", "93");
+  if ((page.viewportSize()?.width ?? 1280) < 768)
+    await page.getByRole("button", { name: "Explore globe" }).click();
   await expect(
     page.getByRole("button", { name: "Fit route to map" }),
-  ).toBeEnabled();
+  ).toBeEnabled({ timeout: 15000 });
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -153,15 +157,20 @@ test("a visible route section stays selectable after resizing", async ({
   await slider.fill("24");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Edit flight" })).toBeVisible();
+  const sheet = page.getByRole("button", { name: /Flight details/ });
+  await sheet.click();
   await expect(slider).toHaveValue("24");
   const map = page.getByRole("region", { name: /Route map/ });
   await map.scrollIntoViewIfNeeded();
   const marker = page.locator(".globe-plane");
   // Pick a point away from the marker and endpoints to exercise the ribbon's hit area.
   await slider.fill("68");
+  await sheet.click();
   await map.scrollIntoViewIfNeeded();
   const target = (await marker.boundingBox())!;
+  await sheet.click();
   await slider.fill("24");
+  await sheet.click();
   await map.scrollIntoViewIfNeeded();
   await page.mouse.click(
     target.x + target.width / 2,
@@ -169,6 +178,7 @@ test("a visible route section stays selectable after resizing", async ({
   );
   await expect(page.getByRole("dialog")).toContainText(guide.seatbelt);
   await page.keyboard.press("Escape");
+  await sheet.click();
   await expect
     .poll(async () => Math.abs(Number(await slider.inputValue()) - 68))
     .toBeLessThanOrEqual(3);
@@ -208,6 +218,8 @@ for (const width of [360, 1280]) {
       await page.keyboard.press("Escape");
       await expect(chip).toBeFocused();
     }
+    if (width === 360)
+      await page.getByRole("button", { name: /Flight details/ }).click();
     const slider = page.getByRole("slider");
     await slider.fill("25");
     await slider.press("ArrowRight");

@@ -61,6 +61,14 @@ def test_thresholds_include_boundaries_and_missing_is_distinct():
     assert sample({}, 37, p)["method"] == "horizon"
 
 
+def test_local_preview_negotiates_the_same_transfer_encoding_as_the_static_site():
+    from services.forecast.local import accepts_gzip
+
+    assert accepts_gzip("br, gzip;q=0.8")
+    for unsupported in ("", "br", "gzip;q=0", "gzip;q=invalid"):
+        assert not accepts_gzip(unsupported)
+
+
 def test_wind_frames_are_optional_and_partial_cycles_stay_unavailable(tmp_path, monkeypatch):
     store = LocalStore(tmp_path, REPLAY_ROOT)
     manifest = store.manifest(PIN)

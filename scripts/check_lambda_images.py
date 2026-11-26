@@ -90,6 +90,14 @@ def main():
             cid,
             "python",
             "-c",
+            "from services.passengers.preview import card_png; "
+            "assert card_png('CTA','LIN','21 Nov 2026','moderate').startswith(bytes.fromhex('89504e470d0a1a0a'))",
+        )
+        docker(
+            "exec",
+            cid,
+            "python",
+            "-c",
             "import importlib,sys\nfor key in sys.argv[1:]:\n"
             " module,name=key.rsplit('.',1)\n assert callable(getattr(importlib.import_module(module),name))",
             *PYTHON_HANDLERS,

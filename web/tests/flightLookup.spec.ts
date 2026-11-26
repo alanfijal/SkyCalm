@@ -34,7 +34,7 @@ test("a schedule finds archived weather and uses the actual departure and arriva
       },
     }),
   );
-  await page.goto("/?demo=lookup");
+  await page.goto("/forecast?demo=lookup");
   await page.getByLabel("Weather source").selectOption("gfs-20261121-06");
   await page
     .getByRole("button", { name: "Flight number", exact: true })
@@ -97,7 +97,7 @@ test("no schedule, quota errors and airport fallback work on a small screen", as
           },
         }),
   );
-  await page.goto("/");
+  await page.goto("/forecast");
   const edit = page.getByRole("button", { name: "Edit flight" });
   await expect(edit).toHaveAttribute("aria-expanded", "false");
   await edit.click();
