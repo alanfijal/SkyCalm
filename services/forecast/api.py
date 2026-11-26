@@ -159,6 +159,8 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
     cubes = {}
     digests = {item["lead"]: item["sha256"] for item in manifest["leads"]}
     predictions = {}
+    levels = (30000, 34000, 38000, 40000) if query.get("altitudes") == "1" else ()
+    altitude_bands = {str(level): [] for level in levels}
     model_digests = {
         item["lead"]: item["modelSha256"] for item in manifest["leads"] if "modelSha256" in item
     }
@@ -178,6 +180,17 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
                     store.model_tile(run_id, near, model_digests[near])
                 )
             pt.update(point_prediction(predictions[near], cubes[near], pt))
+        for level in levels:
+            cruise = {**pt, "altitudeFt": level, "phase": "cruise"}
+            band = sample(cubes, hours, cruise)
+            if model_digests and band["method"] == "ti1":
+                near = 3 * math.ceil(hours / 3 - 0.5)
+                if near not in predictions:
+                    predictions[near] = decode_predictions(
+                        store.model_tile(run_id, near, model_digests[near])
+                    )
+                band.update(point_prediction(predictions[near], cubes[near], cruise))
+            altitude_bands[str(level)].append(band["category"])
         pt["elapsedMinutes"] = round(pt["elapsedMinutes"], 2)
         pt["distanceKm"] = round(pt["distanceKm"], 2)
     options = variants(points)
@@ -198,6 +211,7 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         "durationMinutes": round(points[-1]["elapsedMinutes"]),
         "peak": max(classes, key=CATEGORIES.index) if classes else "unavailable",
         "samples": points,
+        **({"altitudeBands": altitude_bands} if levels else {}),
         "briefing": briefing,
         "modelVersion": manifest.get("model", {}).get("version"),
     }

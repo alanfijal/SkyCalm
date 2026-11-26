@@ -44,12 +44,14 @@ export default function FlightLookup({
   run,
   live,
   onForecast,
+  onSave,
   schedulesEnabled,
   replays,
 }: {
   run: Run | null | undefined;
   live: boolean;
-  onForecast: (f: ScheduledFlight, archiveId?: string) => Promise<void>;
+  onSave?: (f: ScheduledFlight) => void;
+  onForecast?: (f: ScheduledFlight, archiveId?: string) => Promise<void>;
   replays: Run[];
   schedulesEnabled: boolean;
 }) {
@@ -292,28 +294,34 @@ export default function FlightLookup({
                     Past recordings on this route
                   </a>
                 )}
-                {reason ? (
-                  <p>{reason}</p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError("");
-                      void onForecast(f, archived?.runId).catch((e) =>
-                        setError(
-                          e instanceof Error
-                            ? e.message
-                            : "Could not load the forecast.",
-                        ),
-                      );
-                    }}
-                  >
-                    {live && !archived
-                      ? "View forecast"
-                      : "View replay forecast"}
+                {onForecast &&
+                  (reason ? (
+                    <p>{reason}</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        void onForecast(f, archived?.runId).catch((e) =>
+                          setError(
+                            e instanceof Error
+                              ? e.message
+                              : "Could not load the forecast.",
+                          ),
+                        );
+                      }}
+                    >
+                      {live && !archived
+                        ? "View forecast"
+                        : "View replay forecast"}
+                    </button>
+                  ))}
+                {canSave && onSave && (
+                  <button type="button" onClick={() => onSave(f)}>
+                    Use this flight
                   </button>
                 )}
-                {canSave && (
+                {canSave && !onSave && (
                   <a href="/flights" onClick={() => keepFlight(f)}>
                     Save to My flights
                   </a>

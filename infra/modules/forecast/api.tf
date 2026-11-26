@@ -20,6 +20,11 @@ resource "aws_apigatewayv2_stage" "forecast" {
     throttling_burst_limit = 10
     throttling_rate_limit  = 5
   }
+  route_settings {
+    route_key              = aws_apigatewayv2_route.shared_forecast.route_key
+    throttling_rate_limit  = 2
+    throttling_burst_limit = 4
+  }
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api.arn
     format          = jsonencode({ requestId = "$context.requestId", route = "$context.routeKey", status = "$context.status" })

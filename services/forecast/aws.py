@@ -56,6 +56,35 @@ class AwsStore:
         except self.s3.exceptions.NoSuchKey:
             return None
 
+    def route_observations(self, departure, arrival):
+        from datetime import UTC, datetime, timedelta
+
+        from services.passengers.journey import capture_prefixes
+
+        first = datetime.fromisoformat(departure) - timedelta(minutes=45)
+        end = datetime.fromisoformat(arrival) + timedelta(hours=6)
+        keys = []
+        for day in capture_prefixes(first.isoformat(), arrival):
+            # Snapshot keys start with the UTC capture minute; one listing per day.
+            page = self.s3.list_objects_v2(
+                Bucket=self.bucket, Prefix="observations/snapshots/" + day, MaxKeys=1000
+            )
+            for item in page.get("Contents", []):
+                key = item["Key"]
+                try:
+                    at = datetime.strptime(key.split("/")[-1][:15], "%Y-%m-%d-%H%M").replace(
+                        tzinfo=UTC
+                    )
+                except ValueError:
+                    continue
+                if first <= at <= end:
+                    keys.append(key)
+        # Pick up to six evenly spaced captures including the first and last.
+        keys.sort()
+        if len(keys) > 6:
+            keys = [keys[round(i * (len(keys) - 1) / 5)] for i in range(6)]
+        return [json.loads(self.read(key, 2_000_000)) for key in keys]
+
     def read(self, key: str, limit: int) -> bytes:
         response = self.s3.get_object(Bucket=self.bucket, Key=key)
         with response["Body"] as body:

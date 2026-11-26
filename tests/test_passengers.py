@@ -231,7 +231,7 @@ def test_alert_details_require_explicit_preference_and_notification_scope(store)
         toggle("true")
     with pytest.raises(RequestError):
         toggle(True, api.READ)
-    assert toggle(True) == {"push": False, "email": False, "explainAlerts": True}
+    assert toggle(True) == {**api.DEFAULTS, "push": False, "email": False, "explainAlerts": True}
     assert api.view(store, OTHER, T)["preferences"]["explainAlerts"] is False
     assert toggle(False)["explainAlerts"] is False
 
@@ -348,3 +348,234 @@ def test_numbered_itinerary_persists_times_and_lookup_requires_read_scope(store,
     with pytest.raises(RequestError) as exc:
         api.dispatch(lookup, store, now=NOW)
     assert exc.value.status == 401
+
+
+def test_private_flight_history_alerts_and_isolation(store):
+    from services.forecast.api import respond
+    from services.forecast.storage import REPLAY_ROOT, LocalStore
+    from services.passengers.domain import snapshot
+    from services.pipeline.contract import demonstration_route
+
+    flight = save(store)
+    other = save(store, OTHER)
+    run = "gfs-20261124-12"
+    forecast = respond(
+        "/api/forecast",
+        {**demonstration_route(run), "altitudes": "1"},
+        LocalStore(REPLAY_ROOT, REPLAY_ROOT),
+    )
+    summary = snapshot(forecast)
+    row = store.get(OWNER, "flight#1")
+    store.record_forecast(row, "run-1", summary, T, forecast=forecast)
+    new = {"peak": "severe" if summary["peak"] != "severe" else "light", "firstRough": 2}
+    store.record_forecast(store.get(OWNER, "flight#1"), "run-2", new, T + 65, test=True)
+    with pytest.raises(RequestError):
+        store.record_forecast(row, "run-1", summary, T + 70, forecast=forecast)
+    for owner, expected in ((OWNER, flight), (OTHER, other)):
+        details = api.dispatch(
+            http("/api/me/flights/1/detail", body={"owner": OWNER}, owner=owner), store, now=NOW
+        )
+        assert details["flight"]["id"] == expected["id"]
+        if owner == OTHER:
+            assert details["forecast"] is None and details["history"] == []
+        else:
+            assert details["forecast"]["samples"] == forecast["samples"]
+            assert [p["peak"] for p in details["history"]] == [summary["peak"], new["peak"]]
+            assert set(details["forecast"]["altitudeBands"]) == {"30000", "34000", "38000", "40000"}
+    notice = api.view(store, OWNER, T)["inbox"][0]
+    assert notice["flightId"] == flight["id"] and notice["runMarker"] == "run-2"
+    url = "/api/me/notices/" + notice["noticeId"]
+    with pytest.raises(RequestError):
+        api.dispatch(http(url, "PUT", {"read": True}, OTHER, api.WRITE), store, now=NOW)
+    for read in (True, False):
+        api.dispatch(http(url, "PUT", {"read": read}, scope=api.WRITE), store, now=NOW)
+        assert api.view(store, OWNER, T)["inbox"][0]["isRead"] is read
+    store.remove(OWNER, 1, flight["revision"])
+    replace = save(store)
+    assert replace["id"] != notice["flightId"]
+    assert not store.get(OWNER, "forecast#" + flight["id"])
+
+
+def test_family_projection_excludes_private_fields_at_every_level():
+    from services.passengers.sharing import family_forecast
+
+    data = {
+        "origin": {"code": "EDI", "private": "private"},
+        "destination": {"code": "OPO"},
+        "run": {"runId": "gfs", "private": "private"},
+        "samples": [{"category": "moderate", "private": "private"}],
+        "private": "private",
+    }
+    assert family_forecast(data) == {
+        "origin": {"code": "EDI"},
+        "destination": {"code": "OPO"},
+        "run": {"runId": "gfs"},
+        "samples": [{"category": "moderate"}],
+    }
+
+
+def test_anonymous_family_links_expire_rotate_and_revoke(store):
+    flight = save(store)
+    url = "/api/me/flights/1/share"
+
+    def share(method="POST", owner=OWNER):
+        return api.dispatch(
+            http(url, method, {"revision": flight["revision"]}, owner, api.WRITE), store, now=NOW
+        )
+
+    def visit(token, when=NOW):
+        event = http("/api/shared", "POST", {"token": token, "owner": OTHER})
+        del event["requestContext"]["authorizer"]
+        return api.dispatch(event, store, now=when)
+
+    with pytest.raises(RequestError):
+        share(owner=OTHER)
+    token = share()["token"]
+    shared = visit(token)
+    assert set(shared) == {"flight", "forecast", "expiresAt"}
+    assert set(shared["flight"]) == {"origin", "destination", "departure", "arrival", "watch"}
+    assert OWNER not in token and OWNER not in json.dumps(shared, default=str)
+    for value in (token[:-4], token[:-1] + ("a" if token[-1] != "a" else "b"), ""):
+        with pytest.raises(RequestError, match="expired"):
+            visit(value)
+    with pytest.raises(RequestError, match="expired"):
+        visit(token, NOW + timedelta(days=1))
+    new = share()["token"]
+    with pytest.raises(RequestError):
+        visit(token)
+    share("DELETE")
+    with pytest.raises(RequestError):
+        visit(new)
+    new = share()["token"]
+    api.dispatch(
+        http(
+            "/api/me/flights/1",
+            "PUT",
+            {**inputs(), "previous": flight["revision"]},
+            scope=api.WRITE,
+        ),
+        store,
+        now=NOW,
+    )
+    with pytest.raises(RequestError):
+        visit(new)
+
+
+def test_quiet_hours_sensitivity_and_account_session_cutoff(store):
+    from services.passengers.preferences import inbox_only, settings_patch
+
+    hours = {"start": "22:00", "end": "07:00", "zone": "Europe/Madrid"}
+    prefs = settings_patch(
+        {"quietHours": hours, "sensitivity": "moderate", "homeAirport": "BCN", "altitudeUnit": "m"}
+    )
+    for stamp in ("2026-10-25T00:30:00Z", "2026-10-25T01:30:00Z"):
+        assert inbox_only({"kind": "reminder-3h"}, prefs, datetime.fromisoformat(stamp).timestamp())
+    assert not inbox_only({"kind": "reminder-3h"}, prefs, T)
+    assert inbox_only({"kind": "forecast-change", "peak": "light"}, prefs, T)
+    assert not inbox_only({"kind": "forecast-change", "peak": "moderate"}, prefs, T)
+    for patch in (
+        {"quietHours": {**hours, "zone": "Invalid/Place"}},
+        {"nervousFlyer": 1},
+        {"homeAirport": "JFK"},
+        {"email": "other"},
+        {"quietHours": {**hours, "end": "22:00"}},
+    ):
+        with pytest.raises(RequestError):
+            settings_patch(patch)
+    cognito = Mock()
+    api.dispatch(http("/api/me/sign-out", "POST", scope=api.WRITE), store, lambda _: cognito, NOW)
+    cognito.global_sign_out.assert_called_once_with(AccessToken="demonstration")
+    for path in ("/api/me", "/api/me/export", "/api/me/flight-lookup", "/api/admin/health"):
+        req = http(
+            path,
+            "POST" if "lookup" in path else "GET",
+            scope=api.ADMIN if "admin" in path else api.READ,
+            groups="[admins]",
+        )
+        req["requestContext"]["authorizer"]["jwt"]["claims"]["auth_time"] = str(T - 1)
+        with pytest.raises(RequestError, match="ended"):
+            api.dispatch(req, store, now=NOW)
+    fresh = http()
+    fresh["requestContext"]["authorizer"]["jwt"]["claims"]["auth_time"] = str(T + 1)
+    assert api.dispatch(fresh, store, now=NOW)["flights"] == []
+    assert api.dispatch(http(owner=OTHER), store, now=NOW)["flights"] == []
+
+
+def test_postflight_recap_qualifies_observations_and_expires(store):
+    from services.forecast.api import respond
+    from services.forecast.storage import REPLAY_ROOT, LocalStore
+    from services.passengers.domain import snapshot
+    from services.passengers.journey import detail
+    from services.pipeline.contract import demonstration_route
+
+    run = "gfs-20261124-12"
+    forecast = respond(
+        "/api/forecast", demonstration_route(run), LocalStore(REPLAY_ROOT, REPLAY_ROOT)
+    )
+    before = datetime.fromisoformat(forecast["departure"]) - timedelta(hours=3)
+    route = flight_input(
+        {"origin": "EDI", "destination": "OPO", "departure": forecast["departure"]}, before
+    )
+    actual = store.save(OWNER, 1, route, str(uuid4()), None, int(before.timestamp()))
+    store.record_forecast(
+        actual, run, snapshot(forecast), int(before.timestamp()), forecast=forecast
+    )
+    row = store.get(OWNER, "flight#1")
+    weather = Mock()
+    sample = forecast["samples"][20]
+    report = {
+        "kind": "report",
+        "geometry": {"type": "Point", "coordinates": [sample["lon"], sample["lat"]]},
+        "intensity": "moderate",
+        "baseFt": sample["altitudeFt"],
+        "id": "r",
+        "from": sample["at"],
+        "source": "AWC",
+    }
+    weather.route_observations.return_value = [
+        {"items": [report, report, {**report, "id": "missing-altitude", "baseFt": None}]}
+    ]
+    assert detail(store, row, int(before.timestamp()), lambda: weather)["recap"] is None
+    end = datetime.fromisoformat(row["arrival"]) + timedelta(minutes=1)
+    result = detail(store, row, int(end.timestamp()), lambda: weather)["recap"]
+    assert len(result["reports"]) == 1 and result["reports"][0]["forecast"] == sample["category"]
+    weather.route_observations.return_value = []
+    assert (
+        detail(store, row, int(end.timestamp()), lambda: weather)["recap"]["status"]
+        == "no-captures"
+    )
+    with pytest.raises(RequestError):
+        api.dispatch(http("/api/me/flights/1/detail"), store, now=end + timedelta(days=7))
+
+
+def test_quiet_delivery_stays_inapp_and_keeps_read_flag(store, monkeypatch):
+    flight = save(store)
+    row = store.get(OWNER, "flight#1")
+    notice = store.notice(row, "reminder-3h", flight["revision"], T)
+    store.preferences(
+        OWNER,
+        {
+            "quietHours": {"start": "11:00", "end": "15:00", "zone": "Europe/Madrid"},
+            "email": "example@example.edu",
+        },
+        None,
+    )
+    monkeypatch.setattr(
+        worker.runtime, "client", lambda _: pytest.fail("Quiet hours must not contact a provider")
+    )
+    store.set_read(OWNER, notice["noticeId"], True, T)
+    worker.deliver(store, OWNER, notice["sk"], T, 1)
+    saved = store.get(OWNER, notice["sk"])
+    assert saved["delivery"] == "inbox" and saved["isRead"] is True
+
+
+def test_overview_filter_uses_only_non_key_attributes(store):
+    # The hosted Query API rejects key columns in FilterExpression. Moto accepts them.
+    def verify(params, **kwargs):
+        expr = params["FilterExpression"]
+        assert expr == "attribute_not_exists(#payload)"
+        assert params["ExpressionAttributeNames"]["#payload"] == "payload"
+        assert params["KeyConditionExpression"] == "pk = :p"
+
+    store.db.meta.events.register("before-parameter-build.dynamodb.Query", verify)
+    assert list(store.rows(OWNER, T)) == []

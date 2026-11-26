@@ -35,7 +35,7 @@ run "passenger_controls" {
     error_message = "A public PKCE client requires code flow and rotating refresh tokens."
   }
   assert {
-    condition     = length(aws_apigatewayv2_route.passengers) == 9 && alltrue([for r in aws_apigatewayv2_route.passengers : r.authorization_type == "JWT" && length(r.authorization_scopes) == 1])
+    condition     = aws_apigatewayv2_route.shared_forecast.route_key == "POST /api/shared" && aws_apigatewayv2_route.shared_forecast.authorization_type == "NONE" && length(aws_apigatewayv2_route.passengers) == 14 && alltrue([for r in aws_apigatewayv2_route.passengers : r.authorization_type == "JWT" && length(r.authorization_scopes) == 1])
     error_message = "Every private route must require its access scope."
   }
   assert {

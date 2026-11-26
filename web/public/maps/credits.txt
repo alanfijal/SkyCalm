@@ -16,3 +16,7 @@ Terms: https://ourairports.com/data/
 Field definitions: https://ourairports.com/help/data-dictionary.html
 
 Rebuild from the repository root using python3 scripts/prepare_geodata.py.
+
+Airport time zones use airportsdata 20261126 and the IANA time zone database.
+https://github.com/mborsetti/airportsdata
+The bundled airport time-zone data license is available at /maps/airportsdata-license.txt.

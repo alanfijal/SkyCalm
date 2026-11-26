@@ -79,7 +79,16 @@ def make_handler(store: LocalStore, public: Path, lookup_dir: Path = ROOT / ".lo
             asset = (
                 "index.html"
                 if request.path
-                in ("/", "/flights", "/demo", "/health", "/history", "/replay", "/recordings")
+                in (
+                    "/",
+                    "/flights",
+                    "/shared",
+                    "/demo",
+                    "/health",
+                    "/history",
+                    "/replay",
+                    "/recordings",
+                )
                 else unquote(request.path).lstrip("/")
             )
             local = (public / asset).resolve()

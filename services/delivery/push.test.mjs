@@ -21,6 +21,7 @@ test("sends only generic information and bounds lifetime", async () => {
     },
   );
   assert.equal(result.result, "push");
+  assert.equal(result.body, "A test update is waiting in your inbox. " + guide.seatbelt);
 });
 test("expired subscriptions and recoverable failures are distinguished", async () => {
   for (const [status, expected] of [

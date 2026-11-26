@@ -11,12 +11,12 @@ from itertools import pairwise
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from scripts.route_history import distance_km
 from services.forecast.api import airports, descriptor
 from services.forecast.briefing import select, variants
 from services.forecast.product import sample, unpack
 from services.forecast.schema import CATEGORIES, issue_time
 from services.forecast.storage import REPLAY_ROOT, LocalStore
+from services.observations.matching import distance_km
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "web/public/data/recorded-flight"

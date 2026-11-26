@@ -19,6 +19,7 @@ let session:
       until: number;
       admin: boolean;
       operator: boolean;
+      method: string;
     }
   | undefined;
 let refreshing: Promise<string> | undefined;
@@ -45,6 +46,7 @@ function server(a: Auth): oauth.AuthorizationServer {
 }
 export const canOperate = () => Boolean(session?.admin && session.operator);
 export const signedIn = () => Boolean(session);
+export const signInMethod = () => session?.method ?? "SkyCalm sign-in";
 export const isAdmin = () => Boolean(session?.admin);
 export async function signIn(a: Auth, path: string) {
   const verifier = oauth.generateRandomCodeVerifier(),
@@ -81,6 +83,10 @@ export async function signIn(a: Auth, path: string) {
       inbox:
         safePath === "/flights" &&
         new URLSearchParams(location.search).get("view") === "inbox",
+      flight:
+        safePath === "/flights"
+          ? new URLSearchParams(location.search).get("flight")
+          : null,
       started: Date.now(),
     }),
   );
@@ -140,6 +146,18 @@ export async function finishSignIn(a: Auth, url: URL) {
   const id = oauth.getValidatedIdTokenClaims(result);
   const groups = id?.["cognito:groups"];
   session = {
+    method:
+      (Array.isArray(id?.identities) &&
+        id.identities.some(
+          (x) =>
+            typeof x === "object" &&
+            x !== null &&
+            "providerName" in x &&
+            x.providerName === "Google",
+        )) ||
+      String(id?.["cognito:username"] ?? "").startsWith("Google_")
+        ? "Google"
+        : "Amazon Cognito",
     access: result.access_token,
     refresh: result.refresh_token,
     until: Date.now() + Number(result.expires_in ?? 900) * 1000,
@@ -148,9 +166,11 @@ export async function finishSignIn(a: Auth, url: URL) {
   };
   return ["/", "/demo", "/health"].includes(tx.path)
     ? tx.path
-    : tx.inbox
-      ? "/flights?view=inbox"
-      : "/flights";
+    : typeof tx.flight === "string" && /^[0-9a-f-]{36}$/.test(tx.flight)
+      ? "/flights?flight=" + encodeURIComponent(tx.flight)
+      : tx.inbox
+        ? "/flights?view=inbox"
+        : "/flights";
 }
 
 async function accessToken(a: Auth): Promise<string> {

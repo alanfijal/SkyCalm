@@ -1,8 +1,10 @@
 locals {
   private_routes = merge({
-    "GET /api/me"             = "flights.read", "GET /api/me/export" = "flights.read", "DELETE /api/me" = "flights.write",
-    "PUT /api/me/preferences" = "notifications.write", "PUT /api/me/flights/{slot}" = "flights.write", "DELETE /api/me/flights/{slot}" = "flights.write",
-    "GET /api/admin/health"   = "admin", "GET /api/admin/jobs/{job}" = "admin", "POST /api/admin/actions" = "admin"
+    "GET /api/me"                       = "flights.read", "GET /api/me/export" = "flights.read", "DELETE /api/me" = "flights.write",
+    "PUT /api/me/preferences"           = "notifications.write", "PUT /api/me/flights/{slot}" = "flights.write", "DELETE /api/me/flights/{slot}" = "flights.write",
+    "GET /api/me/flights/{slot}/detail" = "flights.read", "POST /api/me/flights/{slot}/share" = "flights.write", "DELETE /api/me/flights/{slot}/share" = "flights.write",
+    "PUT /api/me/notices/{notice}"      = "flights.write", "POST /api/me/sign-out" = "flights.write",
+    "GET /api/admin/health"             = "admin", "GET /api/admin/jobs/{job}" = "admin", "POST /api/admin/actions" = "admin"
   }, var.enable_flight_lookup ? { "POST /api/me/flight-lookup" = "flights.read" } : {})
 }
 resource "aws_apigatewayv2_authorizer" "passengers" {
@@ -38,5 +40,19 @@ resource "aws_lambda_permission" "passengers" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.passenger["api"].function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.forecast.execution_arn}/$default/${split(" ", each.key)[0]}${replace(replace(split(" ", each.key)[1], "{slot}", "*"), "{job}", "*")}"
+  source_arn    = "${aws_apigatewayv2_api.forecast.execution_arn}/$default/${split(" ", each.key)[0]}${replace(split(" ", each.key)[1], "/[{][a-z]+[}]/", "*")}"
+}
+
+resource "aws_apigatewayv2_route" "shared_forecast" {
+  api_id             = aws_apigatewayv2_api.forecast.id
+  route_key          = "POST /api/shared"
+  target             = "integrations/${aws_apigatewayv2_integration.passengers.id}"
+  authorization_type = "NONE"
+}
+resource "aws_lambda_permission" "shared_forecast" {
+  statement_id  = "ReadOneSharedForecast"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.passenger["api"].function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.forecast.execution_arn}/$default/POST/api/shared"
 }

@@ -10,6 +10,7 @@ from uuid import NAMESPACE_URL, uuid5
 from services.forecast.api import respond
 from services.passengers.comfort import alert_level, email_body
 from services.passengers.domain import snapshot
+from services.passengers.preferences import inbox_only
 from services.passengers.store import PassengerStore, decode, encode
 from services.pipeline import runtime
 from services.pipeline.artifacts import StagedGrid
@@ -99,6 +100,11 @@ def stream(event, context):
                 ):
                     new = None
                 schedules(old, new, runtime.client("scheduler"), int(time.time()), os.environ)
+                if new and new["watch"] == "live":
+                    enqueue(
+                        "initial-score",
+                        {"owner": new["pk"], "slot": int(new["slot"]), "revision": new["revision"]},
+                    )
             elif new and not old and key["sk"].startswith("notice#"):
                 send_event(
                     runtime.client("events"),
@@ -147,6 +153,7 @@ def score(store, flight, job, now):
         "destination": flight["destination"],
         "departure": when,
         "run": run,
+        "altitudes": "1",
     }
     if flight.get("arrivalScheduled") and not replay:
         query["arrival"] = flight["arrival"]
@@ -156,12 +163,13 @@ def score(store, flight, job, now):
     lead = (datetime.fromisoformat(when) - issue_time(run)).total_seconds()
     if not 0 <= lead <= 36 * 3600:
         return
-    assessment = snapshot(respond("/api/forecast", query, StagedGrid(runtime.weather(), job)))
+    forecast = respond("/api/forecast", query, StagedGrid(runtime.weather(), job))
+    assessment = snapshot(forecast)
     # Chronological live keys reject late runs. Replay jobs can revisit the same archive.
     marker = ("replay:" + job["jobId"]) if replay else run
     if flight.get("lastRun") == marker or (not replay and flight.get("lastRun", "") > marker):
         return
-    store.record_forecast(flight, marker, assessment, now, test=replay)
+    store.record_forecast(flight, marker, assessment, now, test=replay, forecast=forecast)
 
 
 def deliver(store, owner, sk, now, attempt):
@@ -180,6 +188,10 @@ def deliver(store, owner, sk, now, attempt):
         return
     prefs = account.get("prefs", {})
     result = "inbox"
+    sent_body = None
+    if inbox_only(notice, prefs, now):
+        store.mark_delivery(owner, sk, "inbox", now)
+        return
     if prefs.get("device"):
         invoke = runtime.client("lambda").invoke(
             FunctionName=os.environ["PUSH_FUNCTION"],
@@ -194,7 +206,9 @@ def deliver(store, owner, sk, now, attempt):
         )
         if invoke.get("FunctionError"):
             raise RuntimeError("Push service unavailable")
-        result = json.load(invoke["Payload"])["result"]
+        receipt = json.load(invoke["Payload"])
+        result = receipt["result"]
+        sent_body = receipt.get("body") if result == "push" else None
         if result == "retry" and (attempt < 3 or not prefs.get("email")):
             raise RuntimeError("Temporary push delivery failure")
         if result == "gone":
@@ -209,7 +223,8 @@ def deliver(store, owner, sk, now, attempt):
             # A rejected push can outlive a passenger's delivery preferences.
             account = store.get(owner, "account")
             prefs = {} if account.get("erasing") else account.get("prefs", {})
-    if result != "push" and prefs.get("email"):
+    if result != "push" and prefs.get("email") and not inbox_only(notice, prefs, now):
+        sent_body = email_body(notice, prefs, os.environ.get("INBOX_URL", ""))
         runtime.client("sesv2").send_email(
             FromEmailAddress=os.environ["SES_FROM"],
             Destination={"ToAddresses": [prefs["email"]]},
@@ -218,14 +233,16 @@ def deliver(store, owner, sk, now, attempt):
                     "Subject": {"Data": "SkyCalm flight update"},
                     "Body": {
                         "Text": {
-                            "Data": email_body(notice, prefs, os.environ.get("INBOX_URL", "")),
+                            "Data": sent_body,
                         }
                     },
                 }
             },
         )
         result = "email"
-    store.mark_delivery(owner, sk, "inbox" if result == "gone" else result, now)
+    store.mark_delivery(
+        owner, sk, "inbox" if result == "gone" else result, now, sent_body=sent_body
+    )
 
 
 def process(store, kind, data, now, attempt):
@@ -235,7 +252,7 @@ def process(store, kind, data, now, attempt):
         return watch_page(store, parse_job(data["job"]), data["cursor"], data["asOf"])
     if kind == NOTICE:
         return deliver(store, data["owner"], data["sk"], now, attempt)
-    if kind not in ("score", "reminder", CHANGE):
+    if kind not in ("score", "initial-score", "reminder", CHANGE):
         raise ValueError("Unexpected passenger event")
     owner = data["owner"]
     flight = store.get(owner, "flight#" + str(data["slot"]))
@@ -245,6 +262,35 @@ def process(store, kind, data, now, attempt):
         or store.get(owner, "account").get("erasing")
     ):
         return
+    if kind == "initial-score":
+        if flight.get("lastRun") or flight["departureEpoch"] > now + 36 * 3600:
+            return
+        from services.forecast.api import RequestError
+
+        query = {k: flight[k] for k in ("origin", "destination", "departure")}
+        if flight.get("arrivalScheduled"):
+            query["arrival"] = flight["arrival"]
+        try:
+            forecast = respond(
+                "/api/forecast",
+                {**query, "altitudes": "1"},
+                runtime.weather(),
+                datetime.fromtimestamp(now, UTC),
+            )
+        except RequestError as exc:
+            if exc.code in {
+                "no_live_run",
+                "stale_run",
+                "unknown_run",
+                "before_run",
+                "too_early",
+                "past_departure",
+            }:
+                return
+            raise
+        return store.record_forecast(
+            flight, forecast["run"]["runId"], snapshot(forecast), now, forecast=forecast
+        )
     if kind == "score":
         return score(store, flight, parse_job(data["job"]), now)
     if kind == "reminder":

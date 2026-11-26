@@ -18,14 +18,26 @@ export default function Timeline({
   onSelect,
   observations,
   playing = false,
+  altitudeUnit = "ft",
+  timeZone = "UTC",
 }: {
   forecast: Forecast;
   index: number;
   onSelect: (i: number) => void;
   observations: WeatherItem[] | null;
   playing?: boolean;
+  altitudeUnit?: "ft" | "m";
+  timeZone?: string;
 }) {
   const { samples, origin, destination } = forecast;
+  const routeTime = (iso: string) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "short",
+    }).format(new Date(iso));
   const explain = useCabinGuide();
   const press = useRef<{ x: number; y: number } | null>(null);
   const p = samples[index];
@@ -129,8 +141,8 @@ export default function Timeline({
             />
           </div>
           <div className="track-times">
-            <span>{clock(forecast.departure)} UTC</span>
-            <span>{clock(samples.at(-1)!.at)} UTC</span>
+            <span>{routeTime(forecast.departure)}</span>
+            <span>{routeTime(samples.at(-1)!.at)}</span>
           </div>
           <p className="timeline-hint">
             Drag to explore. Select a section or press Enter on the timeline to
@@ -154,7 +166,10 @@ export default function Timeline({
             </span>
             <span>
               <Mountain size={14} />
-              {p.altitudeFt.toLocaleString("en-GB")} ft
+              {Math.round(
+                altitudeUnit === "ft" ? p.altitudeFt : p.altitudeFt * 0.3048,
+              ).toLocaleString("en-GB")}{" "}
+              {altitudeUnit}
             </span>
           </div>
           <p>
