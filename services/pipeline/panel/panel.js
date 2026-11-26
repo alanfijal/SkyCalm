@@ -2,6 +2,7 @@ const el = (id) => document.getElementById(id);
 const token = document.querySelector('meta[name="skycalm-token"]').content;
 const healthPage = location.pathname === "/health";
 let cloud = false;
+let cabinGuide;
 let pollTimer;
 let polling = false;
 let current = JSON.parse(sessionStorage.getItem("skycalm-run") || "null");
@@ -45,11 +46,47 @@ async function api(path, body) {
   if (!response.ok) throw new Error(data.error || "Request failed");
   return data;
 }
+function levelButton(level, sample) {
+  const copy = cabinGuide.levels[level] ?? cabinGuide.levels.unavailable;
+  const button = node("button", sample === undefined ? copy.label : "");
+  button.className = level;
+  button.setAttribute("aria-haspopup", "dialog");
+  button.setAttribute(
+    "aria-label",
+    (sample === undefined ? "" : "Sample " + (sample + 1) + " · ") +
+      copy.label +
+      " · What does this feel like?",
+  );
+  button.addEventListener("click", () => {
+    el("cabin-title").textContent = copy.label;
+    el("cabin-copy").textContent = copy.summary + " " + copy.detail;
+    el("cabin").showModal();
+  });
+  return button;
+}
+el("ribbon").addEventListener("keydown", (event) => {
+  const buttons = [...event.currentTarget.children];
+  const i = buttons.indexOf(event.target);
+  const next = {
+    ArrowLeft: i - 1,
+    ArrowRight: i + 1,
+    Home: 0,
+    End: buttons.length - 1,
+  }[event.key];
+  if (i < 0 || next === undefined) return;
+  event.preventDefault();
+  buttons[Math.max(0, Math.min(buttons.length - 1, next))].focus();
+});
+el("ribbon").addEventListener("focusin", (event) => {
+  for (const button of event.currentTarget.children)
+    button.tabIndex = button === event.target ? 0 : -1;
+});
 function displayRoute(route) {
   const ribbon = el("ribbon");
   ribbon.replaceChildren();
   el("legend").hidden = !route;
-  el("peak").textContent = route ? "Peak · " + route.peak : "";
+  el("peak").replaceChildren();
+  if (route) el("peak").append("Peak · ", levelButton(route.peak));
   el("route-status").textContent = route
     ? route.departure.replace("T", " ").replace("Z", " UTC") +
       " · " +
@@ -64,12 +101,11 @@ function displayRoute(route) {
       ? "Forecast along the route. Peak " + route.peak
       : "No updated forecast",
   );
-  for (const category of route?.categories || []) {
-    const span = node("i", "");
-    span.className = category;
-    span.title = category;
-    ribbon.append(span);
-  }
+  (route?.categories || []).forEach((category, i) => {
+    const segment = levelButton(category, i);
+    segment.tabIndex = i === 0 ? 0 : -1;
+    ribbon.append(segment);
+  });
 }
 function busy(yes) {
   el("publish").disabled = yes;
@@ -238,6 +274,12 @@ el("probe").addEventListener("click", async () => {
 });
 try {
   const session = await api("session");
+  cabinGuide = session.cabinGuide;
+  el("seatbelt").textContent = cabinGuide.seatbelt;
+  el("cabin-source").href = cabinGuide.source;
+  for (const level of ["smooth", "light", "moderate", "severe"]) {
+    el("legend").append(levelButton(level));
+  }
   cloud = session.cloud;
   el("environment").textContent = session.mode;
   el(healthPage ? "health-link" : "demo-link").setAttribute(

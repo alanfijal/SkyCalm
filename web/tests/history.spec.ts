@@ -11,7 +11,14 @@ for (const width of [360, 1440]) {
       page.getByRole("heading", { name: "Route history" }),
     ).toBeVisible();
     await expect(page.getByText(/1 matching aircraft report$/)).toBeVisible();
-    await expect(page.getByText(/Light reported/)).toBeVisible();
+    const report = page.locator(".recap-list li").first();
+    await expect(report).toContainText("Light reported");
+    await report
+      .getByRole("button", { name: /^Light ·/ })
+      .first()
+      .click();
+    await expect(page.getByRole("dialog")).toContainText("Small bumps");
+    await page.keyboard.press("Escape");
     const details = page.getByText("How reports are matched");
     await details.focus();
     await page.keyboard.press("Enter");

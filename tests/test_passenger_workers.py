@@ -1,9 +1,12 @@
+import io
+import json
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
 
 from services.passengers import admission, api, worker
+from services.passengers.comfort import GUIDE, email_body
 from services.passengers.store import decode, encode
 from tests.test_passengers import NOW, OTHER, OWNER, T, http, save
 from tests.test_passengers import store as store
@@ -122,8 +125,6 @@ def test_real_archived_grid_reaches_only_classroom_inboxes(store, tmp_path):
 
 
 def test_push_falls_back_to_opted_in_email_and_duplicate_is_skipped(store, monkeypatch):
-    import io
-
     monkeypatch.setenv("PUSH_FUNCTION", "push")
     monkeypatch.setenv("SES_FROM", "team@example.edu")
     store.preferences(OWNER, {"device": {"endpoint": "mock"}, "email": "team@example.edu"}, None)
@@ -140,6 +141,48 @@ def test_push_falls_back_to_opted_in_email_and_duplicate_is_skipped(store, monke
     )
     assert "device" not in store.get(OWNER, "account")["prefs"]
     assert store.get(OWNER, notice["sk"])["delivery"] == "email"
+
+
+@pytest.mark.parametrize("level", ["smooth", "light", "moderate", "severe"])
+def test_email_explains_only_the_opted_in_forecast(level):
+    inbox = "https://example.org/flights?view=inbox"
+    notice = {"kind": "forecast-change", "peak": level, "origin": "EDI"}
+    message = email_body(notice, {"explainAlerts": True}, inbox)
+    assert all(
+        s in message
+        for s in [
+            GUIDE["levels"][level]["summary"],
+            GUIDE["levels"][level]["detail"],
+            GUIDE["seatbelt"],
+            GUIDE["source"],
+            inbox,
+        ]
+    )
+    assert "EDI" not in message
+    generic = email_body(notice, {}, inbox)
+    assert GUIDE["levels"][level]["summary"] not in generic
+    assert GUIDE["seatbelt"] in generic and inbox in generic
+    assert generic == email_body({"kind": "forecast-change"}, {"explainAlerts": True}, inbox)
+
+
+def test_preference_change_during_push_protects_the_fallback_email(store, monkeypatch):
+    monkeypatch.setenv("PUSH_FUNCTION", "push")
+    monkeypatch.setenv("SES_FROM", "demo@example.edu")
+    prefs = {"device": {"endpoint": "mock"}, "email": "demo@example.edu", "explainAlerts": True}
+    store.preferences(OWNER, prefs, None)
+    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-change", "demo", T, peak="moderate")
+    sender = Mock()
+
+    def retry(**request):
+        assert json.loads(request["Payload"])["level"] == "moderate"
+        store.preferences(OWNER, {**prefs, "explainAlerts": False}, prefs)
+        return {"Payload": io.BytesIO(b'{"result":"retry"}')}
+
+    sender.invoke.side_effect = retry
+    with patch.object(worker.runtime, "client", return_value=sender):
+        worker.deliver(store, OWNER, notice["sk"], T, 3)
+    body = sender.send_email.call_args.kwargs["Content"]["Simple"]["Body"]["Text"]["Data"]
+    assert "moderate" not in body.lower() and GUIDE["seatbelt"] in body
 
 
 def test_stream_publishes_after_transaction_and_retries_failed_entry(store, monkeypatch):

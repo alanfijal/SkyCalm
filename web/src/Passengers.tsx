@@ -22,6 +22,7 @@ import {
   type Settings,
 } from "./passengerAuth";
 import { dateLabel, clock } from "./types";
+import { guide, knownLevel, LevelButton } from "./CabinGuide";
 import "./passengers.css";
 import { clearDraft, draft, type FlightForm } from "./flightDraft";
 
@@ -43,13 +44,14 @@ interface Notice {
   kind: string;
   created: number;
   delivery: string;
+  peak?: string;
   slot?: number;
 }
 interface Overview {
   closing?: boolean;
   flights: Flight[];
   inbox: Notice[];
-  preferences: { email: boolean; push: boolean };
+  preferences: { email: boolean; push: boolean; explainAlerts?: boolean };
 }
 const names: Record<string, string> = {
   "forecast-change": "Forecast changed",
@@ -436,7 +438,14 @@ export default function Passengers({
                       {f.assessment && (
                         <small>
                           {f.watch === "demo" ? "Demo · " : ""}
-                          {f.assessment.peak} conditions
+                          <LevelButton
+                            level={
+                              knownLevel(f.assessment.peak)
+                                ? f.assessment.peak
+                                : "unavailable"
+                            }
+                          />{" "}
+                          conditions
                         </small>
                       )}
                     </div>
@@ -496,6 +505,12 @@ export default function Passengers({
                       <Bell size={17} />
                       <div>
                         <strong>{names[n.kind] ?? "Flight update"}</strong>
+                        {n.peak && knownLevel(n.peak) && (
+                          <p>
+                            <LevelButton level={n.peak} marker /> ·{" "}
+                            {guide.levels[n.peak].summary}
+                          </p>
+                        )}
                         <p>
                           {time(new Date(n.created * 1000).toISOString())} ·{" "}
                           {n.delivery === "push"
@@ -510,16 +525,16 @@ export default function Passengers({
                 ) : (
                   <p>Your reminders and forecast changes will appear here.</p>
                 )}
+                {data.inbox.some((n) => n.peak && knownLevel(n.peak)) && (
+                  <p>{guide.seatbelt}</p>
+                )}
               </section>
             )}
             {tab === "account" && (
               <>
                 <section className="pass-card">
                   <h2>Notifications</h2>
-                  <p>
-                    Alerts say that an update is waiting. Your route and
-                    departure time stay in SkyCalm.
-                  </p>
+                  <p>Your route and departure time stay in SkyCalm.</p>
                   <div className="pass-row">
                     <span>Browser notifications</span>
                     <button disabled={busy} onClick={() => action(push)}>
@@ -545,6 +560,30 @@ export default function Passengers({
                         : "Enable email"}
                     </button>
                   </div>
+                  <label className="pass-row notice-detail-choice">
+                    <span>
+                      Show turbulence levels in alerts
+                      <small>
+                        Email and browser notifications can then show the level
+                        and how it may feel, even on a locked screen.
+                      </small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(data.preferences.explainAlerts)}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        action(async () => {
+                          await privateApi(endpoint + "/preferences", "PUT", {
+                            channel: "explainAlerts",
+                            enabled,
+                          });
+                          await refresh();
+                        });
+                      }}
+                    />
+                  </label>
                 </section>
                 <section className="pass-card">
                   <h2>Account data</h2>

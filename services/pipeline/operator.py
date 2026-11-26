@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from services.passengers.comfort import GUIDE
 from services.pipeline.contract import REPLAYS
 from services.pipeline.jobs import stamp
 from services.pipeline.operator_backend import CloudOperator, LocalOperator, valid_id
@@ -70,6 +71,7 @@ def handler_for(backend, token, audit):
                             "mode": backend.mode,
                             "cloud": isinstance(backend, CloudOperator),
                             "runs": list(REPLAYS),
+                            "cabinGuide": GUIDE,
                         },
                     )
                 if path == "/api/health":

@@ -159,3 +159,14 @@
     display: none;
   }
 }
+.notice-detail-choice small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+}
+.notice-detail-choice input {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--accent);
+}

@@ -1,4 +1,59 @@
 import { test, expect } from "@playwright/test";
+import type { Sample } from "../src/types";
+
+test("missing forecast data and an unclassified aircraft report have distinct explanations", async ({
+  page,
+}) => {
+  let point: Sample;
+  await page.route("**/api/forecast?**", async (route) => {
+    const response = await route.fetch();
+    const forecast = await response.json();
+    point = forecast.samples[Math.floor((forecast.samples.length - 1) / 2)];
+    point.category = "unavailable";
+    point.method = "outside";
+    await route.fulfill({ json: forecast });
+  });
+  await page.route("**/api/observations?**", (route) =>
+    route.fulfill({
+      json: {
+        asOf: point.at,
+        mode: "replay",
+        source: "Aviation Weather Center",
+        items: [
+          {
+            id: "test-report",
+            kind: "report",
+            source: "AIREP",
+            intensity: "unreported",
+            from: point.at,
+            to: null,
+            baseFt: point.altitudeFt,
+            topFt: point.altitudeFt,
+            codes: [],
+            geometry: { type: "Point", coordinates: [point.lon, point.lat] },
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/");
+  await page
+    .locator(".legend")
+    .getByRole("button", { name: /^Unavailable ·/ })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("too little forecast data");
+  await page.keyboard.press("Escape");
+  await page.getByText("Map layers", { exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "Aircraft weather reports" })
+    .check();
+  await page
+    .locator(".segment-weather")
+    .getByRole("button", { name: /^Unreported ·/ })
+    .click();
+  await expect(dialog).toContainText("This observation does not say");
+});
 
 test("Edinburgh to Porto shows the recorded AIREP and Madrid warning on separate route sections", async ({
   page,
@@ -32,11 +87,21 @@ test("Edinburgh to Porto shows the recorded AIREP and Madrid warning on separate
   const slider = page.getByRole("slider");
   await slider.press("Home");
   for (let i = 0; i < 18; i++) await slider.press("ArrowRight");
-  await expect(page.getByText(/AIREP · light/)).toBeVisible();
+  const report = page
+    .locator(".segment-weather li")
+    .filter({ hasText: /AIREP · Light/ });
+  await expect(report).toBeVisible();
+  await report.getByRole("button", { name: /^Light ·/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Small bumps");
+  await page.keyboard.press("Escape");
   await slider.press("End");
   for (let i = Number(await slider.getAttribute("max")); i > 63; i--)
     await slider.press("ArrowLeft");
-  await expect(page.getByText(/SIGMET LECM 3 · severe/)).toBeVisible();
+  await expect(
+    page
+      .locator(".segment-weather li")
+      .filter({ hasText: /SIGMET LECM 3 · Severe/ }),
+  ).toBeVisible();
 });
 
 test("replay observations are opt-in, dated, and stay with the selected forecast", async ({

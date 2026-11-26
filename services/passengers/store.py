@@ -7,6 +7,7 @@ from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from botocore.exceptions import ClientError
 
 from services.forecast.api import RequestError
+from services.forecast.schema import CATEGORIES
 from services.passengers.domain import changed
 
 PACK = TypeSerializer()
@@ -150,7 +151,9 @@ class PassengerStore:
             if row["sk"] != "account":
                 self.db.delete_item(**self.key(owner, row["sk"]))
 
-    def notice(self, flight, kind, event_id, now, *, updates=None, condition=None, values=None):
+    def notice(
+        self, flight, kind, event_id, now, *, peak=None, updates=None, condition=None, values=None
+    ):
         owner, sk = flight["pk"], flight["sk"]
         uid = hashlib.sha256(
             f"{owner}/{sk}/{flight.get('revision', '')}/{kind}/{event_id}".encode()
@@ -165,6 +168,8 @@ class PassengerStore:
             delivery="pending",
             demo=flight.get("watch") == "demo" or kind.startswith("test-"),
         )
+        if peak in CATEGORIES:
+            notice["peak"] = peak
         writes = []
         if sk.startswith("flight#"):
             notice.update(slot=flight["slot"], flightRevision=flight["revision"])
@@ -218,6 +223,7 @@ class PassengerStore:
                 "test-change" if test else "forecast-change",
                 run,
                 now,
+                peak=summary["peak"],
                 updates=edits + ", lastAlert=:now",
                 condition=condition,
                 values=values,

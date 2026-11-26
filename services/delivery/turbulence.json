@@ -1,0 +1,37 @@
+{
+  "source": "https://www.faa.gov/air_traffic/publications/atpubs/aim_html/chap7_section_1.html#7-1-21",
+  "passengerSource": "https://www.faa.gov/travelers/fly_safe/turbulence",
+  "seatbelt": "Keep your seatbelt fastened when seated.",
+  "levels": {
+    "smooth": {
+      "label": "Smooth",
+      "summary": "You may barely notice any movement.",
+      "detail": "A drink resting on your tray usually stays still."
+    },
+    "light": {
+      "label": "Light",
+      "summary": "Small bumps may give your seatbelt a gentle tug.",
+      "detail": "A drink might ripple. Walking is usually easy and cabin service can often continue."
+    },
+    "moderate": {
+      "label": "Moderate",
+      "summary": "Firmer jolts can press you against your seatbelt.",
+      "detail": "Loose items can shift. Walking and serving drinks become difficult, and the crew may switch on the seatbelt sign."
+    },
+    "severe": {
+      "label": "Severe",
+      "summary": "Strong jolts can push you hard against your seatbelt.",
+      "detail": "Walking becomes impossible and loose items can be tossed about. Severe encounters are uncommon on airliners, and crews try to avoid them."
+    },
+    "unavailable": {
+      "label": "Unavailable",
+      "summary": "There is too little forecast data to say how this section may feel.",
+      "detail": "You may see this beyond the weather grid or its time window."
+    },
+    "unreported": {
+      "label": "Unreported",
+      "summary": "This observation does not say how bumpy the air felt.",
+      "detail": "The cabin conditions at that point are unknown."
+    }
+  }
+}

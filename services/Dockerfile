@@ -11,5 +11,5 @@ CMD ["services.forecast.handler.handler"]
 FROM public.ecr.aws/lambda/nodejs:24@sha256:5f161369102f24d3b088ca52e8e83eeee55e701080ee91af858b4cb2f762b6ef AS push
 COPY --chmod=0644 services/delivery/package*.json ${LAMBDA_TASK_ROOT}/
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
-COPY --chmod=0644 services/delivery/index.mjs ${LAMBDA_TASK_ROOT}/
+COPY --chmod=0644 services/delivery/index.mjs services/delivery/turbulence.json ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]

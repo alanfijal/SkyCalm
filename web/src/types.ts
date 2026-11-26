@@ -1,12 +1,5 @@
 export type Category =
   "smooth" | "light" | "moderate" | "severe" | "unavailable";
-export const LABELS: Record<Category, string> = {
-  smooth: "Smooth",
-  light: "Light",
-  moderate: "Moderate",
-  severe: "Severe",
-  unavailable: "Unavailable",
-};
 export interface Airport {
   code: string;
   name: string;
