@@ -17,6 +17,7 @@ services/flights/local.py
 !services/flights/*.py
 services/flights/local.py
 !services/passengers/*.py
+!services/passengers/preview-requirements.txt
 !services/pipeline/
 !services/pipeline/*.py
 services/pipeline/operator*.py

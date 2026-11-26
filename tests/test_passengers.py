@@ -1,7 +1,7 @@
 import base64
 import json
-from io import BytesIO
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from unittest.mock import Mock
 from uuid import uuid4
 
