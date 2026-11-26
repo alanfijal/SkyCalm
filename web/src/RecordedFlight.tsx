@@ -147,15 +147,12 @@ export default function RecordedFlight({ id }: { id: string | null }) {
     <>
       <header className="topbar">
         <div className="nav-inner">
-          <a href="/" className="brand">
+          <a href="/" className="brand" aria-label="SkyCalm flight forecast">
             <img src="/skycalm.svg" width="32" height="32" alt="" />
             SkyCalm
           </a>
           <a href="/recordings" className="guide-button">
-            Recorded flights
-          </a>
-          <a href="/" className="guide-button">
-            <ArrowLeft size={16} /> Flight forecast
+            <ArrowLeft size={16} /> Recorded flights
           </a>
         </div>
       </header>

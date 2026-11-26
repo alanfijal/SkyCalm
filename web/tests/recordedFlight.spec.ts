@@ -222,7 +222,8 @@ test("airport selection surfaces archived flights and a weather forecast route c
   await timeline.fill("0");
   await playback.click();
   await expect(timeline).not.toHaveValue("0", { timeout: 8000 });
-  await timeline.fill("2");
+  await timeline.press("Home");
+  await expect(timeline).toHaveValue("0");
   await expect(playback).toBeVisible();
   for (const [field, code] of [
     ["departure", "AMS"],
