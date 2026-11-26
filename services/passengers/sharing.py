@@ -69,6 +69,57 @@ def set_link(store, flight, now, create):
     )
 
 
+def family_forecast(forecast):
+    """Explicit public projection, independent of the private forecast schema."""
+    if not forecast:
+        return None
+
+    def only(item, fields):
+        return {name: item[name] for name in fields if name in item}
+
+    route = only(
+        forecast,
+        (
+            "departure",
+            "mode",
+            "briefing",
+            "durationMinutes",
+            "distanceKm",
+            "peak",
+            "modelVersion",
+            "altitudeBands",
+        ),
+    )
+    for stop in ("origin", "destination"):
+        route[stop] = only(
+            forecast[stop], ("code", "name", "country", "city", "lat", "lon", "elevationFt")
+        )
+    route["run"] = only(forecast["run"], ("runId", "issued", "validUntil", "source", "scorer"))
+    route["samples"] = [
+        only(
+            p,
+            (
+                "lat",
+                "lon",
+                "altitudeFt",
+                "elapsedMinutes",
+                "distanceKm",
+                "at",
+                "category",
+                "method",
+                "probability",
+                "driver",
+                "ti1",
+                "shear",
+                "cape",
+                "phase",
+            ),
+        )
+        for p in forecast["samples"]
+    ]
+    return route
+
+
 def read_link(store, token, now):
     match = TOKEN.fullmatch(token) if isinstance(token, str) else None
     if not match:
@@ -95,6 +146,6 @@ def read_link(store, token, now):
         "flight": {
             k: flight[k] for k in ("origin", "destination", "departure", "arrival", "watch")
         },
-        "forecast": forecast_for(store, flight),
+        "forecast": family_forecast(forecast_for(store, flight)),
         "expiresAt": grant["until"],
     }

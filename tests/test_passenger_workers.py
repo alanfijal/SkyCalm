@@ -136,6 +136,10 @@ def test_push_falls_back_to_opted_in_email_and_duplicate_is_skipped(store, monke
         worker.deliver(store, OWNER, notice["sk"], T + 1, 2)
     sender.send_email.assert_called_once()
     msg = sender.send_email.call_args.kwargs
+    assert (
+        store.get(OWNER, notice["sk"])["sentBody"]
+        == msg["Content"]["Simple"]["Body"]["Text"]["Data"]
+    )
     assert msg["Destination"] == {"ToAddresses": ["team@example.edu"]} and "EDI" not in str(
         msg["Content"]
     )

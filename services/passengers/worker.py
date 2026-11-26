@@ -188,6 +188,7 @@ def deliver(store, owner, sk, now, attempt):
         return
     prefs = account.get("prefs", {})
     result = "inbox"
+    sent_body = None
     if inbox_only(notice, prefs, now):
         store.mark_delivery(owner, sk, "inbox", now)
         return
@@ -205,7 +206,9 @@ def deliver(store, owner, sk, now, attempt):
         )
         if invoke.get("FunctionError"):
             raise RuntimeError("Push service unavailable")
-        result = json.load(invoke["Payload"])["result"]
+        receipt = json.load(invoke["Payload"])
+        result = receipt["result"]
+        sent_body = receipt.get("body") if result == "push" else None
         if result == "retry" and (attempt < 3 or not prefs.get("email")):
             raise RuntimeError("Temporary push delivery failure")
         if result == "gone":
@@ -221,6 +224,7 @@ def deliver(store, owner, sk, now, attempt):
             account = store.get(owner, "account")
             prefs = {} if account.get("erasing") else account.get("prefs", {})
     if result != "push" and prefs.get("email") and not inbox_only(notice, prefs, now):
+        sent_body = email_body(notice, prefs, os.environ.get("INBOX_URL", ""))
         runtime.client("sesv2").send_email(
             FromEmailAddress=os.environ["SES_FROM"],
             Destination={"ToAddresses": [prefs["email"]]},
@@ -229,17 +233,16 @@ def deliver(store, owner, sk, now, attempt):
                     "Subject": {"Data": "SkyCalm flight update"},
                     "Body": {
                         "Text": {
-                            "Data": email_body(notice, prefs, os.environ.get("INBOX_URL", "")),
+                            "Data": sent_body,
                         }
                     },
                 }
             },
         )
         result = "email"
-    if result in ("push", "email") and alert_level(notice, prefs):
-        store.mark_delivery(owner, sk, result, now, delivered_level=alert_level(notice, prefs))
-    else:
-        store.mark_delivery(owner, sk, "inbox" if result == "gone" else result, now)
+    store.mark_delivery(
+        owner, sk, "inbox" if result == "gone" else result, now, sent_body=sent_body
+    )
 
 
 def process(store, kind, data, now, attempt):

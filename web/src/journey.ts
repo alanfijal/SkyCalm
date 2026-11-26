@@ -27,7 +27,7 @@ export interface Notice {
   peak?: Category;
   slot?: number;
   deliveredAt?: number;
-  deliveredLevel?: Category | null;
+  sentBody?: string | null;
   isRead?: boolean;
   routeLabel?: string;
   flightId?: string;

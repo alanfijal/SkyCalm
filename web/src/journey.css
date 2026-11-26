@@ -39,6 +39,7 @@
   align-items: start;
 }
 .pass-shell .airport-field {
+  grid-area: auto;
   min-width: 0;
 }
 .pass-shell .airport-trigger {
@@ -139,4 +140,8 @@
   .pass-shell .timeline-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.delivered-copy {
+  white-space: pre-line;
 }

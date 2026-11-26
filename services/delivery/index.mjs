@@ -51,9 +51,10 @@ export async function send(
   const message = cabin
     ? `${test ? "Test forecast" : "Forecast"} · ${cabin.label}. ${cabin.summary}`
     : `A ${test ? "test " : "flight "}update is waiting in your inbox.`;
+  const body = `${message} ${guide.seatbelt}`;
   const payload = JSON.stringify({
     title: "SkyCalm",
-    body: `${message} ${guide.seatbelt}`,
+    body,
     tag,
   });
   try {
@@ -63,7 +64,7 @@ export async function send(
       timeout: 5000,
       urgency: "normal",
     });
-    return { result: "push" };
+    return { result: "push", body };
   } catch (error) {
     if ([404, 410].includes(error.statusCode)) return { result: "gone" };
     if (error.statusCode === 400) return { result: "gone" };

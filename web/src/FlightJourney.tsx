@@ -129,8 +129,8 @@ function ForecastView({
       <section className="pass-card">
         <h2>Altitude along the route</h2>
         <p>
-          Compare forecast conditions at cruising heights. Select a section to
-          inspect it.
+          Compare forecast conditions at cruising heights. Use the time slider
+          to inspect each section.
         </p>
         {cells.map(([ft, bands]) => (
           <div className="altitude-row" key={ft}>
@@ -361,7 +361,13 @@ export function Journey({
           <ForecastView forecast={data.forecast} prefs={prefs} />
           <section className="pass-card">
             <h2>Forecast history</h2>
-            <HistoryChart history={data.history} notices={notices} />
+            <HistoryChart
+              history={data.history}
+              notices={notices.filter(
+                (n) =>
+                  !n.flightRevision || n.flightRevision === flight.revision,
+              )}
+            />
           </section>
           {data.recap && (
             <section className="pass-card">
@@ -463,31 +469,57 @@ export function SharedFlight() {
     }>(),
     [error, setError] = useState("");
   useEffect(() => {
-    let alive = true;
+    let alive = true,
+      loading = false;
+    let expiry: ReturnType<typeof setTimeout>;
     const ctrl = new AbortController();
     history.replaceState(null, "", "/shared");
-    (async () => {
-      if (!/^[a-f0-9]{32}\.[a-f0-9]{64}$/.test(token))
-        throw Error("Open the complete link sent by the passenger.");
-      const c = await config();
-      const r = await fetch(c.apiOrigin + "/api/shared", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token }),
-        credentials: "omit",
-        referrerPolicy: "no-referrer",
-        cache: "no-store",
-        signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(15000)]),
-      });
-      const d = await r.json();
-      if (!r.ok) throw Error(d.message ?? "The link is unavailable.");
-      if (alive) setResult(d);
-    })().catch((e) => {
-      if (alive) setError(e.message);
-    });
+    async function check() {
+      if (loading || document.visibilityState === "hidden") return;
+      loading = true;
+      try {
+        if (!/^[a-f0-9]{32}\.[a-f0-9]{64}$/.test(token))
+          throw Error("Open the complete link sent by the passenger.");
+        const c = await config();
+        const r = await fetch(c.apiOrigin + "/api/shared", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token }),
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          cache: "no-store",
+          signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(15000)]),
+        });
+        const d = await r.json();
+        if (!r.ok) throw Error(d.message ?? "The link is unavailable.");
+        if (alive) {
+          setError("");
+          setResult(d);
+          clearTimeout(expiry);
+          expiry = setTimeout(
+            () => {
+              setResult(undefined);
+              setError("This family link has expired.");
+            },
+            Math.max(0, d.expiresAt * 1000 - Date.now()),
+          );
+        }
+      } catch (e) {
+        if (alive) {
+          setResult(undefined);
+          setError(e instanceof Error ? e.message : "The link is unavailable.");
+        }
+      } finally {
+        loading = false;
+      }
+    }
+    void check();
+    document.addEventListener("visibilitychange", check);
     return () => {
       alive = false;
       ctrl.abort();
+      clearTimeout(expiry);
+      document.removeEventListener("visibilitychange", check);
     };
   }, [token]);
   return (

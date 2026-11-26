@@ -500,7 +500,8 @@ for (const width of [390, 1280]) {
       created: now - 390,
       deliveredAt: now - 370,
       delivery: "push",
-      deliveredLevel: "moderate",
+      sentBody:
+        "Forecast · Moderate. Firmer jolts. Keep your seatbelt fastened when seated.",
       peak: "moderate",
       flightId: id,
       flightRevision: id,

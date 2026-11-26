@@ -337,14 +337,14 @@ class PassengerStore:
         except self.db.exceptions.ConditionalCheckFailedException as exc:
             raise conflict() from exc
 
-    def mark_delivery(self, owner, sk, result, stamp, *, delivered_level=None):
+    def mark_delivery(self, owner, sk, result, stamp, *, sent_body=None):
         try:
             self.db.update_item(
                 **self.key(owner, sk),
                 ConditionExpression="attribute_exists(pk) AND delivery=:p",
-                UpdateExpression="SET delivery=:s, deliveredAt=:t, deliveredLevel=:level",
+                UpdateExpression="SET delivery=:s, deliveredAt=:t, sentBody=:body",
                 ExpressionAttributeValues=encode(
-                    {":p": "pending", ":s": result, ":t": stamp, ":level": delivered_level}
+                    {":p": "pending", ":s": result, ":t": stamp, ":body": sent_body}
                 ),
             )
         except ClientError as exc:

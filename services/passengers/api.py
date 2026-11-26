@@ -58,7 +58,7 @@ NOTICE_FIELDS = (
     "routeLabel",
     "runMarker",
     "isRead",
-    "deliveredLevel",
+    "sentBody",
 )
 SEEDS = (("EDI", "OPO", 12), ("AMS", "LHR", 26), ("BCN", "ARN", 30))
 

@@ -396,6 +396,24 @@ def test_private_flight_history_alerts_and_isolation(store):
     assert not store.get(OWNER, "forecast#" + flight["id"])
 
 
+def test_family_projection_excludes_private_fields_at_every_level():
+    from services.passengers.sharing import family_forecast
+
+    data = {
+        "origin": {"code": "EDI", "private": "private"},
+        "destination": {"code": "OPO"},
+        "run": {"runId": "gfs", "private": "private"},
+        "samples": [{"category": "moderate", "private": "private"}],
+        "private": "private",
+    }
+    assert family_forecast(data) == {
+        "origin": {"code": "EDI"},
+        "destination": {"code": "OPO"},
+        "run": {"runId": "gfs"},
+        "samples": [{"category": "moderate"}],
+    }
+
+
 def test_anonymous_family_links_expire_rotate_and_revoke(store):
     flight = save(store)
     url = "/api/me/flights/1/share"

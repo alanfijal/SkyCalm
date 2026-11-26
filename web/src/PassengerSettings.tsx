@@ -309,43 +309,12 @@ export function NoticeCentre({
                         ? "Sent by email"
                         : "In-app"}
                   </p>
-                  {(n.delivery === "push" || n.delivery === "email") &&
-                    "deliveredLevel" in n && (
-                      <details>
-                        <summary>Delivered message</summary>
-                        <p>
-                          {n.delivery === "email"
-                            ? n.kind.startsWith("test-")
-                              ? "Test update."
-                              : "Flight update."
-                            : n.deliveredLevel
-                              ? (n.kind.startsWith("test-")
-                                  ? "Test forecast"
-                                  : "Forecast") +
-                                " · " +
-                                guide.levels[n.deliveredLevel].label +
-                                "."
-                              : "A " +
-                                (n.kind.startsWith("test-")
-                                  ? "test "
-                                  : "flight ") +
-                                "update is waiting in your inbox."}{" "}
-                          {n.deliveredLevel && (
-                            <>
-                              {n.delivery === "email" &&
-                                (n.deliveredLevel === "smooth"
-                                  ? "Smooth air"
-                                  : guide.levels[n.deliveredLevel].label +
-                                    " turbulence") + " forecast. "}
-                              {guide.levels[n.deliveredLevel].summary}{" "}
-                              {n.delivery === "email" &&
-                                guide.levels[n.deliveredLevel].detail}{" "}
-                            </>
-                          )}
-                          {guide.seatbelt}
-                        </p>
-                      </details>
-                    )}
+                  {n.sentBody && (
+                    <details>
+                      <summary>Delivered message</summary>
+                      <p className="delivered-copy">{n.sentBody}</p>
+                    </details>
+                  )}
                   <button disabled={busy} onClick={() => mark(n)}>
                     {n.isRead ? "Mark unread" : "Mark read"}
                   </button>
