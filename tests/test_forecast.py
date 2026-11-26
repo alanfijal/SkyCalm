@@ -128,3 +128,14 @@ def test_airport_search_and_invalid_http_input(tmp_path):
     r = response("GET", "/api/airports", "q=BCN&q=JFK", store, "test")
     assert r["statusCode"] == 400 and json.loads(r["body"])["code"] == "invalid_query"
     assert response("POST", "/api/forecast", "", store, "test")["statusCode"] == 405
+
+
+def test_timetable_duration_reaches_the_scheduled_arrival(tmp_path):
+    store = LocalStore(tmp_path, REPLAY_ROOT)
+    timed = respond("/api/forecast", params(arrival="2026-11-24T21:55:00+01:00"), store, CLOCK)
+    assert timed["durationMinutes"] == 175
+    assert timed["samples"][-1]["at"] == "2026-11-24T20:55:00Z"
+    for invalid in ("2026-11-24T17:00:00Z", "2026-11-26T00:00:00Z", "2026-11-24T21:00"):
+        with pytest.raises(RequestError) as exc:
+            respond("/api/forecast", params(arrival=invalid), store, CLOCK)
+        assert exc.value.code == "invalid_arrival"

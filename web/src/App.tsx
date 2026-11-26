@@ -26,7 +26,10 @@ import {
 } from "lucide-react";
 import AirportField from "./AirportField";
 import Guide from "./Guide";
-import { keepRoute } from "./flightDraft";
+import { keepFlight, keepRoute } from "./flightDraft";
+import FlightLookup, { pendingLookup } from "./FlightLookup";
+import { config } from "./passengerAuth";
+import type { ScheduledFlight } from "./flightSchedule";
 import Timeline from "./Timeline";
 import WeatherLayers from "./WeatherLayers";
 import { nearby, type LayerChoice } from "./observations";
@@ -51,7 +54,23 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "light" ? "light" : "dark",
   );
-  const [editing, setEditing] = useState(false);
+  const [byNumber, setByNumber] = useState(() => Boolean(pendingLookup()));
+  const [lookupEnabled, setLookupEnabled] = useState(false);
+  const [selectedFlight, setSelectedFlight] = useState<ScheduledFlight | null>(
+    null,
+  );
+  const [editing, setEditing] = useState(() => Boolean(pendingLookup()));
+  useEffect(() => {
+    let mounted = true;
+    void config()
+      .then((c) => {
+        if (mounted) setLookupEnabled(c.flightLookup === true);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const editButton = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => applyTheme(theme), [theme]);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -89,7 +108,13 @@ export default function App() {
   const flightRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(
-    async (from: Airport, to: Airport, when: string, run: string) => {
+    async (
+      from: Airport,
+      to: Airport,
+      when: string,
+      run: string,
+      schedule?: ScheduledFlight,
+    ) => {
       flightRequest.current?.abort();
       const ctrl = new AbortController();
       flightRequest.current = ctrl;
@@ -101,13 +126,17 @@ export default function App() {
           {
             origin: from.code,
             destination: to.code,
-            departure: when + ":00Z",
+            departure: schedule?.departure.time.utc ?? when + ":00Z",
+            ...(schedule?.arrival.time
+              ? { arrival: schedule.arrival.time.utc }
+              : {}),
             run,
           },
           ctrl.signal,
         );
         if (!ctrl.signal.aborted) {
           setForecast(f);
+          setSelectedFlight(schedule ?? null);
           setPoint(Math.floor((f.samples.length - 1) / 2));
           return true;
         }
@@ -181,6 +210,24 @@ export default function App() {
     setSource(selection);
     setDeparture(when);
     if (origin && dest) void load(origin, dest, when, selection);
+  }
+  async function useSchedule(f: ScheduledFlight) {
+    const [from, to] = await Promise.all(
+      [f.departure, f.arrival].map(async (stop) => {
+        const result = await getJson<{ airports: Airport[] }>("/api/airports", {
+          q: stop.code,
+        });
+        const airport = result.airports.find((a) => a.code === stop.code);
+        if (!airport)
+          throw Error("The airport is outside the forecast directory.");
+        return airport;
+      }),
+    );
+    const when = f.departure.time.utc.slice(0, 16);
+    setOrigin(from);
+    setDest(to);
+    setDeparture(when);
+    if (await load(from, to, when, source, f)) setEditing(false);
   }
   const dirty =
     forecast &&
@@ -314,95 +361,133 @@ export default function App() {
                 </button>
               )}
             </div>
-            <form
-              id="flight-form"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (
-                  origin &&
-                  dest &&
-                  departure &&
-                  source &&
-                  (await load(origin, dest, departure, source))
-                ) {
-                  setEditing(false);
-                  if (editButton.current?.offsetWidth)
-                    editButton.current.focus({ preventScroll: true });
-                }
-              }}
-            >
-              <div className="airport-pair">
-                <AirportField
-                  label="Departure airport"
-                  selected={origin}
-                  onChange={setOrigin}
-                />
+            {lookupEnabled && (
+              <div
+                className="lookup-modes"
+                role="group"
+                aria-label="Search flights by"
+              >
                 <button
-                  className="swap"
                   type="button"
-                  aria-label="Swap airports"
+                  aria-pressed={!byNumber}
                   onClick={() => {
-                    setOrigin(dest);
-                    setDest(origin);
+                    setByNumber(false);
+                    setEditing(true);
                   }}
                 >
-                  <ArrowUpDown size={14} />
+                  Airports
                 </button>
-                <AirportField
-                  label="Arrival airport"
-                  selected={dest}
-                  onChange={setDest}
+                <button
+                  type="button"
+                  aria-pressed={byNumber}
+                  onClick={() => {
+                    setByNumber(true);
+                    setEditing(true);
+                  }}
+                >
+                  Flight number
+                </button>
+              </div>
+            )}
+            {lookupEnabled && byNumber ? (
+              <div id="flight-form">
+                <FlightLookup
+                  run={meta}
+                  live={source === "latest"}
+                  onForecast={useSchedule}
                 />
               </div>
-              <div className="date-grid">
-                <label>
-                  Departure date
-                  <span className="native-field">
-                    <input
-                      required
-                      type="date"
-                      aria-label="Departure date"
-                      value={departure.slice(0, 10)}
-                      onChange={(e) =>
-                        setDeparture(
-                          e.target.value +
-                            "T" +
-                            (departure.slice(11) || "00:00"),
-                        )
-                      }
-                    />
-                  </span>
-                </label>
-                <label>
-                  Time (UTC)
-                  <span className="native-field">
-                    <input
-                      required
-                      type="time"
-                      aria-label="Departure time UTC"
-                      value={departure.slice(11)}
-                      onChange={(e) =>
-                        setDeparture(
-                          departure.slice(0, 10) + "T" + e.target.value,
-                        )
-                      }
-                    />
-                  </span>
-                </label>
-              </div>
-              <button
-                type="submit"
-                className="submit"
-                disabled={loading || !origin || !dest || !source}
+            ) : (
+              <form
+                id="flight-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (
+                    origin &&
+                    dest &&
+                    departure &&
+                    source &&
+                    (await load(origin, dest, departure, source))
+                  ) {
+                    setEditing(false);
+                    if (editButton.current?.offsetWidth)
+                      editButton.current.focus({ preventScroll: true });
+                  }
+                }}
               >
-                {loading ? "Loading forecast…" : "Forecast flight"}
-              </button>
-              {dirty && !loading && (
-                <p className="dirty">
-                  Update the forecast to see your changes.
-                </p>
-              )}
-            </form>
+                <div className="airport-pair">
+                  <AirportField
+                    label="Departure airport"
+                    selected={origin}
+                    onChange={setOrigin}
+                  />
+                  <button
+                    className="swap"
+                    type="button"
+                    aria-label="Swap airports"
+                    onClick={() => {
+                      setOrigin(dest);
+                      setDest(origin);
+                    }}
+                  >
+                    <ArrowUpDown size={14} />
+                  </button>
+                  <AirportField
+                    label="Arrival airport"
+                    selected={dest}
+                    onChange={setDest}
+                  />
+                </div>
+                <div className="date-grid">
+                  <label>
+                    Departure date
+                    <span className="native-field">
+                      <input
+                        required
+                        type="date"
+                        aria-label="Departure date"
+                        value={departure.slice(0, 10)}
+                        onChange={(e) =>
+                          setDeparture(
+                            e.target.value +
+                              "T" +
+                              (departure.slice(11) || "00:00"),
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                  <label>
+                    Time (UTC)
+                    <span className="native-field">
+                      <input
+                        required
+                        type="time"
+                        aria-label="Departure time UTC"
+                        value={departure.slice(11)}
+                        onChange={(e) =>
+                          setDeparture(
+                            departure.slice(0, 10) + "T" + e.target.value,
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="submit"
+                  disabled={loading || !origin || !dest || !source}
+                >
+                  {loading ? "Loading forecast…" : "Forecast flight"}
+                </button>
+                {dirty && !loading && (
+                  <p className="dirty">
+                    Update the forecast to see your changes.
+                  </p>
+                )}
+              </form>
+            )}
             <div className="data-note" data-replay={source !== "latest"}>
               <Globe2 size={16} />
               <div>
@@ -412,15 +497,22 @@ export default function App() {
                   {source && source !== "latest" ? " · Replay" : ""}
                 </span>
               </div>
-              {forecast && (
-                <a
-                  className="save-route-link"
-                  href="/flights"
-                  onClick={() => keepRoute(forecast)}
-                >
-                  Save route
-                </a>
-              )}
+              {forecast &&
+                (!selectedFlight ||
+                  Date.parse(selectedFlight.departure.time.utc) >
+                    Date.now()) && (
+                  <a
+                    className="save-route-link"
+                    href="/flights"
+                    onClick={() =>
+                      selectedFlight
+                        ? keepFlight(selectedFlight)
+                        : keepRoute(forecast)
+                    }
+                  >
+                    {selectedFlight ? "Save flight" : "Save route"}
+                  </a>
+                )}
             </div>
           </section>
           <section className="map-card card" aria-label="Flight map">
@@ -428,6 +520,12 @@ export default function App() {
               <>
                 <div className="map-title">
                   <div>
+                    {selectedFlight && (
+                      <p className="scheduled-route-note">
+                        {selectedFlight.number} · Estimated great-circle route ·
+                        Cruise up to 35,000 ft
+                      </p>
+                    )}
                     <div className="route-codes">
                       <strong>{forecast.origin.code}</strong>
                       <ArrowRight size={20} />

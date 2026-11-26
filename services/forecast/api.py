@@ -9,7 +9,7 @@ from pathlib import Path
 from services.forecast.briefing import cache_key, select, variants
 from services.forecast.model_tile import decode_predictions, point_prediction
 from services.forecast.product import sample, unpack
-from services.forecast.route import route_points
+from services.forecast.route import route_points, scheduled_end
 from services.forecast.schema import CATEGORIES, inside, issue_time, utc_text
 
 
@@ -147,7 +147,13 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
     if selection == "latest" and departure < clock - timedelta(minutes=5):
         raise RequestError("past_departure", "Choose an upcoming departure or switch to replay.")
     try:
-        distance, points = route_points(origin, dest, departure)
+        arrival = scheduled_end(query["arrival"], departure) if "arrival" in query else None
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise RequestError(
+            "invalid_arrival", "Choose a scheduled arrival within 24 hours of departure."
+        ) from exc
+    try:
+        distance, points = route_points(origin, dest, departure, arrival)
     except ValueError as exc:
         raise RequestError("same_airport", str(exc)) from exc
     cubes = {}
@@ -189,7 +195,7 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         "mode": "live" if selection == "latest" else "replay",
         "departure": utc_text(departure),
         "distanceKm": round(distance),
-        "durationMinutes": round(distance / 800 * 60),
+        "durationMinutes": round(points[-1]["elapsedMinutes"]),
         "peak": max(classes, key=CATEGORIES.index) if classes else "unavailable",
         "samples": points,
         "briefing": briefing,

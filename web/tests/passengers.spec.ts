@@ -17,6 +17,7 @@ async function provider(
   result:
     "success" | "wrong-state" | "invite-denied" | "provider-error" = "success",
   presenter = false,
+  flightLookup = false,
 ) {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -29,6 +30,7 @@ async function provider(
     r.fulfill({
       json: {
         apiOrigin: "",
+        flightLookup,
         auth: { domain: login, issuer, clientId, vapidPublicKey: "" },
       },
     }),
@@ -263,4 +265,91 @@ test("an anonymous visitor cannot operate the demo", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Publish replay" }),
   ).toHaveCount(0);
+});
+
+test("flight search resumes after sign-in and saves the selected timetable", async ({
+  page,
+}) => {
+  await provider(page, "success", false, true);
+  const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  const dep = day + "T06:20:00Z",
+    arr = day + "T07:40:00Z";
+  let searches = 0,
+    saved: Record<string, unknown> | undefined;
+  await page.route("**/api/me**", async (r) => {
+    const req = r.request();
+    const path = new URL(req.url()).pathname;
+    expect(req.headers().authorization).toBe("Bearer demo-access");
+    if (path.endsWith("/flight-lookup")) {
+      searches++;
+      expect(req.postDataJSON()).toEqual({ number: "KL1001", date: day });
+      return r.fulfill({
+        json: {
+          checkedAt: Date.now() / 1000,
+          cached: false,
+          flights: [
+            {
+              number: "KL1001",
+              status: "Expected",
+              aircraft: "Embraer 195",
+              departure: {
+                code: "AMS",
+                name: "Schiphol",
+                covered: true,
+                time: { local: day + "T07:20+01:00", utc: dep },
+              },
+              arrival: {
+                code: "LHR",
+                name: "Heathrow",
+                covered: true,
+                time: { local: day + "T07:40+00:00", utc: arr },
+              },
+            },
+          ],
+        },
+      });
+    }
+    if (req.method() === "PUT") {
+      saved = {
+        ...req.postDataJSON(),
+        slot: 1,
+        id: "saved-number",
+        watch: "live",
+        arrival: arr,
+        arrivalScheduled: true,
+      };
+      return r.fulfill({ json: saved });
+    }
+    return r.fulfill({
+      json: {
+        flights: saved ? [saved] : [],
+        inbox: [],
+        preferences: { push: false, email: false },
+      },
+    });
+  });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Flight number", exact: true })
+    .click();
+  await page.getByLabel("Flight number", { exact: true }).fill("KL1001");
+  await page.getByLabel("Departure date (local)", { exact: true }).fill(day);
+  await page.getByRole("button", { name: "Find flight" }).click();
+  const card = page.locator(".schedule-card");
+  await expect(card).toContainText("Embraer 195");
+  await expect(card).toContainText("07:20 local");
+  await expect(card).toContainText("06:20 UTC");
+  await expect(card).toContainText("No weather grid");
+  expect(searches).toBe(1);
+  await card.getByRole("link", { name: "Save to My flights" }).click();
+  await expect(page.getByLabel("Departure airport code")).toHaveValue("AMS");
+  await page.getByRole("button", { name: "Save flight", exact: true }).click();
+  await expect(
+    page.locator("article").filter({ hasText: "KL1001" }),
+  ).toContainText("LHR");
+  expect(saved?.flightNumber).toBe("KL1001");
+  expect(saved?.scheduledArrival).toBe(arr);
+  expect(new Date(String(saved?.departure)).toISOString()).toBe(
+    new Date(dep).toISOString(),
+  );
 });

@@ -45,7 +45,12 @@ variable "enable_edge_waf" {
   type        = bool
   default     = false
 }
+variable "enable_flight_lookup" {
+  type    = bool
+  default = false
+}
 module "forecast" {
+  enable_flight_lookup  = var.enable_flight_lookup
   enable_edge_waf       = var.enable_edge_waf
   training_image_digest = var.training_image_digest
   passenger_settings    = var.passenger_settings

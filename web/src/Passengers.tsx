@@ -23,12 +23,14 @@ import {
 } from "./passengerAuth";
 import { dateLabel, clock } from "./types";
 import "./passengers.css";
-import { clearDraft, draft } from "./flightDraft";
+import { clearDraft, draft, type FlightForm } from "./flightDraft";
 
 interface Flight {
   slot: number;
   id: string;
   revision: string;
+  flightNumber?: string;
+  arrivalScheduled?: boolean;
   origin: string;
   destination: string;
   departure: string;
@@ -83,7 +85,7 @@ function PresenterAccessCheck() {
     </div>
   );
 }
-const freshForm = () => ({
+const freshForm = (): FlightForm => ({
   origin: "",
   destination: "",
   departure: new Date(Date.now() + 24 * 3600000).toISOString().slice(0, 16),
@@ -354,7 +356,10 @@ export default function Passengers({
                       void action(save);
                     }}
                   >
-                    <h3>{edit ? "Edit flight" : "Add a flight"}</h3>
+                    <h3>
+                      {form.flightNumber ||
+                        (edit ? "Edit flight" : "Add a flight")}
+                    </h3>
                     <div className="pass-fields">
                       {(["origin", "destination"] as const).map((k, i) => (
                         <label key={k}>
@@ -374,6 +379,8 @@ export default function Passengers({
                             onChange={(e) =>
                               setForm({
                                 ...form,
+                                flightNumber: undefined,
+                                scheduledArrival: undefined,
                                 [k]: e.target.value.toUpperCase(),
                               })
                             }
@@ -387,7 +394,12 @@ export default function Passengers({
                           required
                           value={form.departure}
                           onChange={(e) =>
-                            setForm({ ...form, departure: e.target.value })
+                            setForm({
+                              ...form,
+                              flightNumber: undefined,
+                              scheduledArrival: undefined,
+                              departure: e.target.value,
+                            })
                           }
                         />
                       </label>
@@ -415,6 +427,7 @@ export default function Passengers({
                   <article className="pass-card pass-route" key={f.id}>
                     <div>
                       <h3>
+                        {f.flightNumber && <span>{f.flightNumber} · </span>}
                         {f.origin} <ChevronRight size={16} /> {f.destination}
                       </h3>
                       <p>
@@ -432,6 +445,10 @@ export default function Passengers({
                         disabled={busy}
                         onClick={() => {
                           setForm({
+                            flightNumber: f.flightNumber,
+                            scheduledArrival: f.arrivalScheduled
+                              ? f.arrival
+                              : undefined,
                             origin: f.origin,
                             destination: f.destination,
                             departure: f.departure.slice(0, 16),

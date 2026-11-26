@@ -298,3 +298,28 @@ def test_ignores_body_identity_and_blocks_unknown_push_endpoint(store):
         now=NOW,
     )
     assert len(list(store.rows(OWNER, T))) == 1 and not list(store.rows(OTHER, T))
+
+
+def test_numbered_itinerary_persists_times_and_lookup_requires_read_scope(store, monkeypatch):
+    body = {
+        "origin": "AMS",
+        "destination": "LHR",
+        "flightNumber": "KL 1001",
+        "departure": "2026-11-27T07:20:00+01:00",
+        "scheduledArrival": "2026-11-27T07:40:00Z",
+        "revision": str(uuid4()),
+    }
+    saved = api.dispatch(http("/api/me/flights/1", "PUT", body, scope=api.WRITE), store, now=NOW)
+    assert saved["flightNumber"] == "KL1001" and saved["arrivalScheduled"]
+    assert saved["arrival"] == "2026-11-27T07:40:00Z"
+    assert api.dispatch(http(), store, now=NOW)["flights"][0]["flightNumber"] == "KL1001"
+    monkeypatch.setattr(
+        "services.flights.aws.aws_lookup",
+        lambda body, owner: {"number": body["number"], "owner": owner},
+    )
+    lookup = http("/api/me/flight-lookup", "POST", {"number": "KL1001"})
+    assert api.dispatch(lookup, store, now=NOW)["owner"] == OWNER
+    lookup["requestContext"].pop("authorizer")
+    with pytest.raises(RequestError) as exc:
+        api.dispatch(lookup, store, now=NOW)
+    assert exc.value.status == 401
