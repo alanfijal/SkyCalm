@@ -567,3 +567,15 @@ def test_quiet_delivery_stays_inapp_and_keeps_read_flag(store, monkeypatch):
     worker.deliver(store, OWNER, notice["sk"], T, 1)
     saved = store.get(OWNER, notice["sk"])
     assert saved["delivery"] == "inbox" and saved["isRead"] is True
+
+
+def test_overview_filter_uses_only_non_key_attributes(store):
+    # The hosted Query API rejects key columns in FilterExpression. Moto accepts them.
+    def verify(params, **kwargs):
+        expr = params["FilterExpression"]
+        assert expr == "attribute_not_exists(#payload)"
+        assert params["ExpressionAttributeNames"]["#payload"] == "payload"
+        assert params["KeyConditionExpression"] == "pk = :p"
+
+    store.db.meta.events.register("before-parameter-build.dynamodb.Query", verify)
+    assert list(store.rows(OWNER, T)) == []

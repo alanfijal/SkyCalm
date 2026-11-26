@@ -46,8 +46,8 @@ class PassengerStore:
             ConsistentRead=True,
         )
         if not include_snapshots:
-            query["FilterExpression"] = "NOT begins_with(sk, :snap)"
-            query["ExpressionAttributeValues"].update(encode({":snap": "forecast#"}))
+            query["FilterExpression"] = "attribute_not_exists(#payload)"
+            query["ExpressionAttributeNames"] = {"#payload": "payload"}
         while True:
             page = self.db.query(**query)
             for raw in page["Items"]:
