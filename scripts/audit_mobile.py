@@ -32,21 +32,30 @@ def main():
         scores = {key: [] for key in CATEGORIES}
         for number in range(args.runs):
             path = args.output / f"{name}-{number + 1}.json"
-            subprocess.run(
-                [
-                    *command,
-                    args.origin.rstrip("/") + route,
-                    "--quiet",
-                    "--form-factor=mobile",
-                    "--only-categories=performance,accessibility",
-                    "--output=json",
-                    "--chrome-flags=--headless --no-first-run --disable-dev-shm-usage",
-                    "--output-path=" + str(path.resolve()),
-                ],
-                check=True,
-                timeout=150,
-            )
-            report = json.loads(path.read_bytes())
+            invocation = [
+                *command,
+                args.origin.rstrip("/") + route,
+                "--quiet",
+                "--form-factor=mobile",
+                "--only-categories=performance,accessibility",
+                "--output=json",
+                "--chrome-flags=--headless --no-first-run --disable-dev-shm-usage "
+                "--disable-background-timer-throttling --disable-renderer-backgrounding "
+                "--disable-backgrounding-occluded-windows",
+                "--output-path=" + str(path.resolve()),
+            ]
+            for attempt in range(2):
+                run = subprocess.run(invocation, timeout=150, check=False)
+                report = json.loads(path.read_bytes())
+                if run.returncode == 0:
+                    break
+                if attempt or (report.get("runtimeError") or {}).get("code") != "NO_FCP":
+                    run.check_returncode()
+                path.rename(path.with_suffix(".no-paint.json"))
+                print(
+                    f"{name}: Chrome returned no paint timing. Retained the diagnostic and started a fresh browser.",
+                    flush=True,
+                )
             if report.get("runtimeError") or report["lighthouseVersion"] != "12.8.2":
                 raise RuntimeError(f"Unexpected Lighthouse result: {path}")
             for key in CATEGORIES:

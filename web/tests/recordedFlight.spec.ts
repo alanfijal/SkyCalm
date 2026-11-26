@@ -43,11 +43,11 @@ test("the public replay plays, pauses, scrubs and restarts at the recorded airpo
   await timeline.fill("9");
   await expect(page.getByRole("button", { name: "Play replay" })).toBeVisible();
   await page.setViewportSize({ width: 360, height: 800 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth - innerWidth,
-    ),
-  ).toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    )
+    .toBe(0);
   const scan = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
@@ -191,11 +191,11 @@ test("search remembers the flight direction and date on mobile and handles unkno
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
   expect(scan.violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth - innerWidth,
-    ),
-  ).toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    )
+    .toBe(0);
   await results.click();
   await expect(
     page.getByRole("heading", { name: "Turin to Manchester" }),
