@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
 
-from grid.compute import decode, encode
+from grid.compute import cruise_wind, decode, encode
 from grid.source import GfsSource, NotReady, SourceError
 from services.forecast.schema import LEADS, SCORER, issue_time, tile_name, utc_text
 from services.forecast.storage import LocalStore
@@ -26,7 +26,12 @@ def build_lead(run_id: str, lead: int, directory: Path) -> dict:
         }
         tile = encode(fields)
         (directory / tile_name(lead)).write_bytes(tile)
-        return {"lead": lead, "sha256": hashlib.sha256(tile).hexdigest(), **source.last_source}
+        return {
+            "lead": lead,
+            "sha256": hashlib.sha256(tile).hexdigest(),
+            "wind250": cruise_wind(fields),
+            **source.last_source,
+        }
     finally:
         source.http.clear()
 
