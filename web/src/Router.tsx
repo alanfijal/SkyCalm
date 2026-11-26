@@ -2,12 +2,16 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { config, finishSignIn } from "./passengerAuth";
 const App = lazy(() => import("./App"));
 const Passengers = lazy(() => import("./Passengers"));
+const SharedFlight = lazy(() =>
+  import("./FlightJourney").then((m) => ({ default: m.SharedFlight })),
+);
 const RouteHistory = lazy(() => import("./RouteHistory"));
 const RecordedFlight = lazy(() => import("./RecordedFlight"));
 const RecordingSearch = lazy(() => import("./RecordingSearch"));
 const pages = [
   "/",
   "/flights",
+  "/shared",
   "/demo",
   "/health",
   "/history",
@@ -40,7 +44,8 @@ export default function Router() {
       if (
         to.origin !== location.origin ||
         !pages.includes(to.pathname) ||
-        (to.search && !["/replay", "/recordings"].includes(to.pathname)) ||
+        (to.search &&
+          !["/replay", "/recordings", "/flights"].includes(to.pathname)) ||
         to.hash
       )
         return;
@@ -79,6 +84,12 @@ export default function Router() {
     };
   }, []);
   const [version, setVersion] = useState(0);
+  if (path === "/shared")
+    return (
+      <Suspense fallback={<main>Opening forecast…</main>}>
+        <SharedFlight />
+      </Suspense>
+    );
   if (path === "/recordings")
     return (
       <Suspense fallback={<main>Loading recorded flights…</main>}>
@@ -103,7 +114,7 @@ export default function Router() {
   return pages.slice(1).includes(path) ? (
     <Suspense fallback={<main>Loading…</main>}>
       <Passengers
-        key={path + version + error}
+        key={page + version + error}
         path={path}
         initialError={error}
       />

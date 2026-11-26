@@ -146,8 +146,8 @@ test("saved flights and historical inbox updates explain their own levels; deliv
             revision: "1",
             origin: "BCN",
             destination: "ARN",
-            departure: "2026-11-24T12:00:00Z",
-            arrival: "2026-11-24T15:00:00Z",
+            departure: new Date(Date.now() + 86400000).toISOString(),
+            arrival: new Date(Date.now() + 97200000).toISOString(),
             watch: "demo",
             assessment: { peak: "light" },
           },
@@ -176,9 +176,13 @@ test("saved flights and historical inbox updates explain their own levels; deliv
   await page.getByRole("button", { name: /^Light ·/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Small bumps");
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Inbox (2)", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Notifications (2)", exact: true })
+    .click();
   const notices = page.locator(".pass-notice");
-  await expect(notices.nth(1).getByRole("button")).toHaveCount(0);
+  await expect(notices.nth(1).getByRole("button", { name: / · / })).toHaveCount(
+    0,
+  );
   await notices
     .first()
     .getByRole("button", { name: /^Moderate ·/ })
@@ -240,8 +244,19 @@ test("a passenger signs in, saves a flight, exports and deletes the account", as
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Add flight" }).click();
   expect(exchanges()).toBe(1);
-  await page.getByLabel("Departure airport code").fill("BCN");
-  await page.getByLabel("Arrival airport code").fill("ARN");
+  for (const [label, code] of [
+    ["Departure airport", "BCN"],
+    ["Arrival airport", "ARN"],
+  ]) {
+    await page.getByRole("button", { name: new RegExp(label, "i") }).click();
+    await page
+      .getByRole("combobox", { name: "Search " + label.toLowerCase() })
+      .fill(code);
+    await page
+      .getByRole("option", { name: new RegExp(code) })
+      .first()
+      .click();
+  }
   await page.getByRole("button", { name: "Save flight" }).click();
   await expect(page.getByRole("heading", { name: "BCN ARN" })).toBeVisible();
   expect(
@@ -426,7 +441,9 @@ test("flight search resumes after sign-in and saves the selected timetable", asy
   await expect(card).toContainText("No weather grid");
   expect(searches).toBe(1);
   await card.getByRole("link", { name: "Save to My flights" }).click();
-  await expect(page.getByLabel("Departure airport code")).toHaveValue("AMS");
+  await expect(
+    page.getByRole("button", { name: /AMS.*Departure airport/i }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Save flight", exact: true }).click();
   await expect(
     page.locator("article").filter({ hasText: "KL1001" }),
@@ -437,3 +454,165 @@ test("flight search resumes after sign-in and saves the selected timetable", asy
     new Date(dep).toISOString(),
   );
 });
+
+for (const width of [390, 1280]) {
+  test(`a passenger follows forecast changes and opens a one-flight family view at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width, height: 850 });
+    await provider(page);
+    const run = "gfs-20261124-12";
+    const response = await request.get("/api/forecast", {
+      params: {
+        origin: "EDI",
+        destination: "OPO",
+        departure: "2026-11-24T20:15:00Z",
+        run,
+        altitudes: "1",
+      },
+    });
+    expect(response.ok()).toBe(true);
+    const forecast = await response.json();
+    const now = Math.floor(Date.now() / 1000);
+    const id = "3ef94f76-9f65-43c0-b30e-ee660ab46085";
+    const route = {
+      origin: "EDI",
+      destination: "OPO",
+      departure: new Date((now + 36000) * 1000).toISOString(),
+      arrival: new Date((now + 47000) * 1000).toISOString(),
+      watch: "demo",
+    };
+    const flight = {
+      ...route,
+      id,
+      slot: 1,
+      revision: id,
+      assessment: { peak: "moderate" },
+      baseline: { peak: "light" },
+      forecastAt: now - 600,
+      ribbon: ["smooth", "light", "moderate", "light"],
+      nextReminder: now + 25000,
+    };
+    const alert = {
+      noticeId: "a".repeat(32),
+      kind: "forecast-change",
+      created: now - 390,
+      deliveredAt: now - 370,
+      delivery: "push",
+      deliveredLevel: "moderate",
+      peak: "moderate",
+      flightId: id,
+      flightRevision: id,
+      routeLabel: "EDI → OPO",
+      runMarker: "r2",
+    };
+    let read = false,
+      active = false;
+    const token = "a".repeat(32) + "." + "b".repeat(64);
+    await page.route("**/api/me**", async (r) => {
+      const path = new URL(r.request().url()).pathname;
+      if (path.endsWith("/detail"))
+        return r.fulfill({
+          json: {
+            flight,
+            forecast,
+            history: [
+              { marker: "r1", at: now - 3600, peak: "light", run },
+              { marker: "r2", at: now - 390, peak: "moderate", run },
+            ],
+            recap: null,
+            shareUntil: null,
+          },
+        });
+      if (path.endsWith("/share")) {
+        active = r.request().method() === "POST";
+        return r.fulfill({
+          json: active ? { token, expiresAt: now + 86400 } : { revoked: true },
+        });
+      }
+      if (path.includes("/notices/")) {
+        read = r.request().postDataJSON().read;
+        return r.fulfill({ json: { read } });
+      }
+      return r.fulfill({
+        json: {
+          flights: [flight],
+          inbox: [{ ...alert, isRead: read }],
+          preferences: {
+            altitudeUnit: "m",
+            nervousFlyer: true,
+            push: true,
+            email: false,
+          },
+        },
+      });
+    });
+    await page.goto("/flights");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText("Rougher since first forecast")).toBeVisible();
+    await page.getByRole("button", { name: "Notifications (1)" }).click();
+    await page.getByRole("button", { name: "Mark read", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Mark unread", exact: true }),
+    ).toBeVisible();
+    await page.getByText("Delivered message").click();
+    await expect(page.getByText(/Forecast · Moderate/)).toBeVisible();
+    await page.getByRole("link", { name: "EDI → OPO" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Forecast history" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: /diamonds mark sent alerts/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Altitude along the route" }),
+    ).toBeVisible();
+    await expect(page.locator(".altitude-row")).toHaveCount(4);
+    await expect(
+      page.getByRole("heading", { name: "What it may feel like" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await page.getByRole("button", { name: "Create family link" }).click();
+    const url = await page.getByLabel("Family link").inputValue();
+    const family = await page.context().browser()!.newContext();
+    const tab = await family.newPage();
+    await tab.route("**/config.json", (r) =>
+      r.fulfill({ json: { apiOrigin: "" } }),
+    );
+    await tab.route("**/api/shared", (r) => {
+      expect(r.request().headers().authorization).toBeUndefined();
+      expect(r.request().postDataJSON()).toEqual({ token });
+      return active
+        ? r.fulfill({
+            json: { flight: route, forecast, expiresAt: now + 86400 },
+          })
+        : r.fulfill({
+            status: 404,
+            json: { message: "This flight link has expired or was removed." },
+          });
+    });
+    try {
+      await tab.goto(url);
+      await expect(
+        tab.getByRole("heading", { name: "EDI → OPO" }),
+      ).toBeVisible();
+      expect(new URL(tab.url()).hash).toBe("");
+      await expect(tab.getByText("Account data")).toHaveCount(0);
+      await expect(tab.getByText("Forecast history")).toHaveCount(0);
+      await page.getByRole("button", { name: "Revoke link" }).click();
+      await expect(
+        page.getByRole("button", { name: "Create family link" }),
+      ).toBeVisible();
+      await tab.goto("about:blank");
+      await tab.goto(url);
+      await expect(tab.getByRole("alert")).toContainText(
+        "expired or was removed",
+      );
+    } finally {
+      await family.close();
+    }
+  });
+}

@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
-  Bell,
-  CalendarClock,
-  ChevronRight,
   Download,
   Plane,
   Plus,
@@ -12,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   canOperate,
+  signInMethod,
   config,
   isAdmin,
   presenterAccessStatus,
@@ -22,44 +20,29 @@ import {
   type Settings,
 } from "./passengerAuth";
 import { dateLabel, clock } from "./types";
-import { guide, knownLevel, LevelButton } from "./CabinGuide";
+import { FlightSummary, Journey } from "./FlightJourney";
+import JourneyForm from "./JourneyForm";
+import {
+  NoticeCentre,
+  PastCard,
+  SetupChecklist,
+  TravelPreferences,
+} from "./PassengerSettings";
+import {
+  flightHref,
+  type Flight,
+  type Notice,
+  type Preferences,
+} from "./journey";
 import "./passengers.css";
 import { clearDraft, draft, type FlightForm } from "./flightDraft";
 
-interface Flight {
-  slot: number;
-  id: string;
-  revision: string;
-  flightNumber?: string;
-  arrivalScheduled?: boolean;
-  origin: string;
-  destination: string;
-  departure: string;
-  arrival: string;
-  watch: string;
-  assessment?: { peak: string };
-}
-interface Notice {
-  noticeId: string;
-  kind: string;
-  created: number;
-  delivery: string;
-  peak?: string;
-  slot?: number;
-}
 interface Overview {
   closing?: boolean;
   flights: Flight[];
   inbox: Notice[];
-  preferences: { email: boolean; push: boolean; explainAlerts?: boolean };
+  preferences: Preferences;
 }
-const names: Record<string, string> = {
-  "forecast-change": "Forecast changed",
-  "reminder-24h": "24 hours until departure",
-  "reminder-3h": "3 hours until departure",
-  "test-change": "Demo forecast changed",
-  "test-push": "Test notification",
-};
 const time = (d: string) => dateLabel(d) + " · " + clock(d) + " UTC";
 const endpoint = "/api/me";
 function PresenterAccessCheck() {
@@ -116,6 +99,23 @@ export default function Passengers({
     [confirm, setConfirm] = useState(""),
     [message, setMessage] = useState("");
   const admin = path !== "/flights";
+  const requested = new URLSearchParams(location.search).get("flight");
+  const selected = data?.flights.find((f) => f.id === requested);
+  const [past, setPast] = useState(false);
+  const [endSessions, setEndSessions] = useState(false);
+  function add() {
+    setForm({ ...freshForm(), origin: data?.preferences.homeAirport ?? "" });
+    setEdit(null);
+    setPast(false);
+    setTab("flights");
+  }
+  const now = Date.now();
+  const listed = (data?.flights ?? [])
+    .filter((f) => Date.parse(f.arrival) <= now === past)
+    .sort(
+      (a, b) =>
+        (past ? -1 : 1) * (Date.parse(a.departure) - Date.parse(b.departure)),
+    );
   const refresh = useCallback(
     async () => setData(await privateApi<Overview>(endpoint)),
     [],
@@ -154,7 +154,7 @@ export default function Passengers({
       setBusy(false);
     }
   }
-  async function save() {
+  async function save(next: FlightForm) {
     const slot =
       edit?.slot ??
       Array.from({ length: 8 }, (_, i) => i + 1).find(
@@ -162,8 +162,8 @@ export default function Passengers({
       );
     if (!slot) throw Error("You can save eight flights.");
     await privateApi(endpoint + "/flights/" + slot, "PUT", {
-      ...form,
-      departure: new Date(form.departure + "Z").toISOString(),
+      ...next,
+      departure: new Date(next.departure + "Z").toISOString(),
       revision: crypto.randomUUID(),
       previous: edit?.revision,
     });
@@ -309,6 +309,19 @@ export default function Passengers({
             flights={data?.flights ?? []}
             reload={refresh}
           />
+        ) : data && requested ? (
+          selected ? (
+            <Journey
+              flight={selected}
+              prefs={data.preferences}
+              notices={data.inbox.filter((n) => n.flightId === selected.id)}
+            />
+          ) : (
+            <section className="pass-card">
+              <p>This saved flight is unavailable.</p>
+              <a href="/flights">Back to saved flights</a>
+            </section>
+          )
         ) : data ? (
           <>
             <nav className="pass-tabs" aria-label="Passenger sections">
@@ -325,153 +338,116 @@ export default function Passengers({
                   {t === "flights"
                     ? "Saved flights"
                     : t === "inbox"
-                      ? "Inbox"
+                      ? "Notifications"
                       : "Account"}
-                  {t === "inbox" && data.inbox.length > 0
-                    ? " (" + data.inbox.length + ")"
+                  {t === "inbox" && data.inbox.some((n) => !n.isRead)
+                    ? " (" + data.inbox.filter((n) => !n.isRead).length + ")"
                     : ""}
                 </button>
               ))}
             </nav>
             {tab === "flights" && (
               <>
+                <SetupChecklist
+                  hasFlight={!!data.flights.length}
+                  notifications={
+                    data.preferences.push || data.preferences.email
+                  }
+                  add={add}
+                  account={() => setTab("account")}
+                />
                 <div className="pass-row">
-                  <h2>Upcoming routes</h2>
+                  <h2>{past ? "Past flights" : "Upcoming flights"}</h2>
                   {edit === undefined && (
                     <button
                       className="pass-primary"
                       disabled={data.flights.length >= 8}
-                      onClick={() => {
-                        setForm(freshForm());
-                        setEdit(null);
-                      }}
+                      onClick={add}
                     >
-                      <Plus size={16} /> Add flight
+                      <Plus size={16} />
+                      Add flight
                     </button>
                   )}
                 </div>
-                {edit !== undefined && (
-                  <form
-                    className="pass-card pass-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void action(save);
+                <div className="pass-actions">
+                  <button
+                    aria-pressed={!past}
+                    onClick={() => {
+                      setPast(false);
+                      setEdit(undefined);
                     }}
                   >
-                    <h3>
-                      {form.flightNumber ||
-                        (edit ? "Edit flight" : "Add a flight")}
-                    </h3>
-                    <div className="pass-fields">
-                      {(["origin", "destination"] as const).map((k, i) => (
-                        <label key={k}>
-                          {i ? "To" : "From"}
-                          <input
-                            aria-label={
-                              i
-                                ? "Arrival airport code"
-                                : "Departure airport code"
-                            }
-                            placeholder={i ? "OPO" : "EDI"}
-                            minLength={3}
-                            maxLength={3}
-                            pattern="[A-Za-z]{3}"
-                            required
-                            value={form[k]}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                flightNumber: undefined,
-                                scheduledArrival: undefined,
-                                [k]: e.target.value.toUpperCase(),
-                              })
-                            }
-                          />
-                        </label>
-                      ))}
-                      <label>
-                        Departure · UTC
-                        <input
-                          type="datetime-local"
-                          required
-                          value={form.departure}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              flightNumber: undefined,
-                              scheduledArrival: undefined,
-                              departure: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="pass-actions">
-                      <button disabled={busy} className="pass-primary">
-                        Save flight
-                      </button>
-                      <button type="button" onClick={() => setEdit(undefined)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                    Upcoming
+                  </button>
+                  <button
+                    aria-pressed={past}
+                    onClick={() => {
+                      setPast(true);
+                      setEdit(undefined);
+                    }}
+                  >
+                    Past
+                  </button>
+                </div>
+                {edit !== undefined && (
+                  <JourneyForm
+                    key={edit?.revision ?? "new"}
+                    initial={form}
+                    edit={Boolean(edit)}
+                    busy={busy}
+                    schedules={Boolean(settings.flightLookup)}
+                    onCancel={() => setEdit(undefined)}
+                    onSave={(next) => void action(() => save(next))}
+                  />
                 )}
-                {!data.flights.length && edit === undefined && (
+                {!listed.length && edit === undefined && (
                   <section className="pass-card">
                     <Plane />
-                    <h3>No saved flights yet</h3>
+                    <h3>{past ? "No past flights" : "No upcoming flights"}</h3>
                     <p>
-                      Add the airports and departure time for your next trip.
+                      {past
+                        ? "After arrival, your recap stays here for seven days."
+                        : "Save a flight to follow its forecast."}
                     </p>
                   </section>
                 )}
-                {data.flights.map((f) => (
+                {listed.map((f) => (
                   <article className="pass-card pass-route" key={f.id}>
                     <div>
-                      <h3>
-                        {f.flightNumber && <span>{f.flightNumber} · </span>}
-                        {f.origin} <ChevronRight size={16} /> {f.destination}
-                      </h3>
-                      <p>
-                        <CalendarClock size={15} /> {time(f.departure)}
-                      </p>
-                      {f.assessment && (
-                        <small>
-                          {f.watch === "demo" ? "Demo · " : ""}
-                          <LevelButton
-                            level={
-                              knownLevel(f.assessment.peak)
-                                ? f.assessment.peak
-                                : "unavailable"
-                            }
-                          />{" "}
-                          conditions
-                        </small>
-                      )}
+                      <FlightSummary
+                        flight={f}
+                        prefs={data.preferences}
+                        now={now}
+                      />
+                      {past && <PastCard f={f} prefs={data.preferences} />}
                     </div>
                     <div className="pass-actions">
+                      <a href={flightHref(f.id)}>
+                        {past ? "View recap" : "Flight details"}
+                      </a>
+                      {!past && (
+                        <button
+                          onClick={() => {
+                            setForm({
+                              origin: f.origin,
+                              destination: f.destination,
+                              departure: f.departure.slice(0, 16),
+                              flightNumber: f.flightNumber,
+                              scheduledArrival: f.arrivalScheduled
+                                ? f.arrival
+                                : undefined,
+                            });
+                            setEdit(f);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
                       <button
                         disabled={busy}
-                        onClick={() => {
-                          setForm({
-                            flightNumber: f.flightNumber,
-                            scheduledArrival: f.arrivalScheduled
-                              ? f.arrival
-                              : undefined,
-                            origin: f.origin,
-                            destination: f.destination,
-                            departure: f.departure.slice(0, 16),
-                          });
-                          setEdit(f);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
                         aria-label={
                           "Remove " + f.origin + " to " + f.destination
                         }
-                        disabled={busy}
                         onClick={() =>
                           action(async () => {
                             await privateApi(
@@ -492,46 +468,43 @@ export default function Passengers({
               </>
             )}
             {tab === "inbox" && (
-              <section className="pass-card">
-                <div className="pass-row">
-                  <h2>Flight updates</h2>
-                  <button disabled={busy} onClick={() => action(refresh)}>
-                    Refresh
-                  </button>
-                </div>
-                {data.inbox.length ? (
-                  data.inbox.map((n) => (
-                    <article className="pass-notice" key={n.noticeId}>
-                      <Bell size={17} />
-                      <div>
-                        <strong>{names[n.kind] ?? "Flight update"}</strong>
-                        {n.peak && knownLevel(n.peak) && (
-                          <p>
-                            <LevelButton level={n.peak} marker /> ·{" "}
-                            {guide.levels[n.peak].summary}
-                          </p>
-                        )}
-                        <p>
-                          {time(new Date(n.created * 1000).toISOString())} ·{" "}
-                          {n.delivery === "push"
-                            ? "Sent to browser"
-                            : n.delivery === "email"
-                              ? "Sent by email"
-                              : "In-app"}
-                        </p>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <p>Your reminders and forecast changes will appear here.</p>
-                )}
-                {data.inbox.some((n) => n.peak && knownLevel(n.peak)) && (
-                  <p>{guide.seatbelt}</p>
-                )}
-              </section>
+              <>
+                <button disabled={busy} onClick={() => action(refresh)}>
+                  Refresh
+                </button>
+                <NoticeCentre
+                  notices={data.inbox}
+                  flights={data.flights}
+                  busy={busy}
+                  mark={(n) =>
+                    void action(async () => {
+                      await privateApi(
+                        endpoint + "/notices/" + n.noticeId,
+                        "PUT",
+                        { read: !n.isRead },
+                      );
+                      await refresh();
+                    })
+                  }
+                />
+              </>
             )}
             {tab === "account" && (
               <>
+                <TravelPreferences
+                  prefs={data.preferences}
+                  busy={busy}
+                  onSave={(patch) =>
+                    action(async () => {
+                      await privateApi(endpoint + "/preferences", "PUT", {
+                        channel: "passenger",
+                        settings: patch,
+                      });
+                      await refresh();
+                      setMessage("Preferences saved.");
+                    })
+                  }
+                />
                 <section className="pass-card">
                   <h2>Notifications</h2>
                   <p>Your route and departure time stay in SkyCalm.</p>
@@ -587,8 +560,12 @@ export default function Passengers({
                 </section>
                 <section className="pass-card">
                   <h2>Account data</h2>
+                  <p>Sign-in method · {signInMethod()}</p>
                   <p>
-                    Flight records expire seven days after estimated arrival.
+                    Your flights, forecast history and notifications are stored
+                    in Stockholm. They disappear seven days after arrival. AWS
+                    removes expired records in the following days. Your account
+                    and delivery preferences stay until you delete them.
                   </p>
                   <div className="pass-actions">
                     <button disabled={busy} onClick={() => action(download)}>
@@ -598,10 +575,36 @@ export default function Passengers({
                     <button onClick={() => setDeleting((v) => !v)}>
                       Delete account
                     </button>
+                    <button onClick={() => setEndSessions(true)}>
+                      Sign out all devices
+                    </button>
                     <button onClick={() => signOut(settings.auth!)}>
                       Sign out
                     </button>
                   </div>
+                  {endSessions && (
+                    <div>
+                      <p>End all your SkyCalm sessions, including this one?</p>
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          action(async () => {
+                            await privateApi(
+                              endpoint + "/sign-out",
+                              "POST",
+                              {},
+                            );
+                            signOut(settings.auth!);
+                          })
+                        }
+                      >
+                        Confirm sign out everywhere
+                      </button>
+                      <button onClick={() => setEndSessions(false)}>
+                        Keep sessions
+                      </button>
+                    </div>
+                  )}
                   {deleting && (
                     <form
                       onSubmit={(e) => {
