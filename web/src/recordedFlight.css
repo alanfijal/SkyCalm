@@ -1,0 +1,47 @@
+.recording {
+  max-inline-size: 78rem;
+}
+.recording .route-globe {
+  min-block-size: clamp(18rem, 45svh, 36rem);
+}
+.recording .legend b {
+  font-size: 0.85rem;
+}
+.recording-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  padding: 0.55rem var(--pad);
+  border-block-start: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.recording-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.55rem;
+  color: var(--on-accent);
+  background: var(--accent);
+  font-weight: 650;
+}
+.recording-controls time {
+  font-weight: 650;
+}
+.recording-speed,
+.recording-sources {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.recording-sources {
+  margin: var(--gap) 0;
+  line-height: 1.6;
+}
+.recording-sources a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}

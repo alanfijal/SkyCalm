@@ -180,6 +180,12 @@ export default function FlightLookup({
                     <dd>{f.aircraft ?? "Not listed"}</dd>
                   </div>
                 </dl>
+                {f.number.replace(/\s+/g, "").toUpperCase() === "AZ1704" &&
+                  f.departure.code === "CTA" &&
+                  f.arrival.code === "LIN" &&
+                  f.departure.time.local.slice(0, 10) === "2026-11-21" && (
+                    <a href="/replay">Replay this recorded flight</a>
+                  )}
                 {reason ? (
                   <p>{reason}</p>
                 ) : (

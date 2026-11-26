@@ -21,6 +21,17 @@ On phones and tablets, tap **Edit flight** to change the airports or departure t
 
 **Try a replay.** Choose the archived **24 Nov 2026, 12 UTC** weather run, Barcelona (BCN) to Stockholm Arlanda (ARN), and depart on **24 Nov at 18:00 UTC**. Select **Forecast flight** if you change the route. The estimated flight takes 2 h 54 min. Use the timeline or the coloured route to explore the change from smooth to moderate. **Forecast guide** explains the model and its limits.
 
+**Replay a recorded flight.** Open [Recorded flight](https://d9w1t8ghthajo.cloudfront.net/replay) and press **Play replay** to follow ITA Airways AZ1704 from Catania to Milan Linate on 21 November 2026. ADSB.lol recorded 750 airborne positions from 14:54 to 16:43 UTC. SkyCalm shows the observations nearest each elapsed minute and both endpoints. The colours come from the 06:00 UTC NOAA forecast at the recorded times, coordinates and barometric altitudes. The phase labels approximate climb, cruise and descent from the altitude profile. Scheduled flight lookups use AeroDataBox.
+
+The [downloadable track](web/public/data/recorded-flight/az1704-20261121.csv) is derived from [ADSB.lol's daily archive](https://github.com/adsblol/globe_history_2026/releases/tag/v2026.11.21-planes-readsb-prod-0) and is available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Verify the replay offline with `python -m scripts.recorded_replay --check`. To reproduce the CSV from the original aircraft-day member, run the following from the repository root. The importer checks its SHA-256 before exporting the one flight.
+
+```sh
+curl -fL --max-time 30 --max-filesize 96750 --range 272510976-272607725 \
+  'https://github.com/adsblol/globe_history_2026/releases/download/v2026.11.21-planes-readsb-prod-0/v2026.11.21-planes-readsb-prod-0.tar.ab?trace=4cad5e' \
+  -o /tmp/skycalm-az1704.json.gz
+python -m scripts.recorded_replay --import-member /tmp/skycalm-az1704.json.gz
+```
+
 ### Load a current weather run
 
 ```sh
