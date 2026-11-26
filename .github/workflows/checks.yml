@@ -58,7 +58,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: bash scripts/lambda_images.sh build
+      - name: Build Lambda images from a private checkout
+        run: |
+          chmod 600 services/forecast/aws.py services/delivery/index.mjs
+          bash scripts/lambda_images.sh build
       - run: python3 scripts/check_lambda_images.py
   training:
     runs-on: ubuntu-24.04

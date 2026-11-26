@@ -22,7 +22,9 @@ PYTHON_HANDLERS = (
 
 
 def docker(*args, **kwargs):
-    return subprocess.run(["docker", *args], text=True, check=True, capture_output=True, **kwargs)
+    return subprocess.run(
+        ["docker", *args], text=True, check=True, stdout=subprocess.PIPE, **kwargs
+    )
 
 
 @contextmanager
@@ -32,8 +34,9 @@ def runtime(target, handler):
         "-d",
         "--network=none",
         "--read-only",
+        "--user=10001:10001",
         "--tmpfs",
-        "/tmp",
+        "/tmp:rw,mode=1777",
         "-e",
         "AWS_REGION=eu-north-1",
         "-e",
@@ -47,6 +50,9 @@ def runtime(target, handler):
     ).stdout.strip()
     try:
         yield cid
+    except Exception:
+        subprocess.run(["docker", "logs", "--tail", "30", cid], check=False)
+        raise
     finally:
         docker("rm", "-f", cid)
 
