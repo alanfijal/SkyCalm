@@ -28,7 +28,7 @@ def docker(*args, **kwargs):
 
 
 @contextmanager
-def runtime(target, handler):
+def runtime(handler):
     cid = docker(
         "run",
         "-d",
@@ -45,7 +45,7 @@ def runtime(target, handler):
         "SKYCALM_BUCKET=example",
         "-e",
         "SKYCALM_TABLE=example",
-        f"skycalm-{target}:local",
+        "skycalm-python:local",
         handler,
     ).stdout.strip()
     try:
@@ -57,22 +57,13 @@ def runtime(target, handler):
         docker("rm", "-f", cid)
 
 
-def invoke(cid, target, event):
-    if target == "python":
-        client = [
-            "python",
-            "-c",
-            "import sys,urllib.request as u; print(u.urlopen(sys.argv[1], "
-            "sys.argv[2].encode(), timeout=8).read().decode())",
-        ]
-    else:
-        client = [
-            "node",
-            "--input-type=module",
-            "-e",
-            "const r=await fetch(process.argv[1],{method:'POST',body:process.argv[2]});"
-            " console.log(await r.text())",
-        ]
+def invoke(cid, event):
+    client = [
+        "python",
+        "-c",
+        "import sys,urllib.request as u; print(u.urlopen(sys.argv[1], "
+        "sys.argv[2].encode(), timeout=8).read().decode())",
+    ]
     for attempt in range(12):
         try:
             result = docker("exec", cid, *client, INVOKE, json.dumps(event), timeout=15)
@@ -84,7 +75,7 @@ def invoke(cid, target, event):
 
 
 def main():
-    with runtime("python", PYTHON_HANDLERS[0]) as cid:
+    with runtime(PYTHON_HANDLERS[0]) as cid:
         docker(
             "exec",
             cid,
@@ -107,15 +98,12 @@ def main():
             "rawPath": "/api/airports",
             "rawQueryString": "q=EDI",
         }
-        response = invoke(cid, "python", event)
+        response = invoke(cid, event)
         assert (
             response["statusCode"] == 200
             and json.loads(response["body"])["airports"][0]["code"] == "EDI"
         )
-    with runtime("push", "index.handler") as cid:
-        response = invoke(cid, "push", {"subscription": {"endpoint": "https://example.org"}})
-        assert "Unsupported push endpoint" in response["errorMessage"], response
-    print("Loaded 11 Python handlers. Both ARM64 runtimes passed their offline invocation.")
+    print(f"Loaded {len(PYTHON_HANDLERS)} Python handlers and invoked the ARM64 runtime offline.")
 
 
 if __name__ == "__main__":

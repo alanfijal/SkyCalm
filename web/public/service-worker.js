@@ -1,37 +1,18 @@
-self.addEventListener("push", (event) => {
-  let update = {};
-  try {
-    update = event.data?.json() || {};
-  } catch {
-    /* use the generic message */
-  }
-  event.waitUntil(
-    self.registration.showNotification("SkyCalm", {
-      body:
-        update.body ||
-        "A flight update is waiting in your inbox. Keep your seatbelt fastened when seated.",
-      icon: "/icon-192.png",
-      tag: update.tag,
-      data: { path: "/flights?view=inbox" },
-    }),
-  );
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
 });
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
+
+self.addEventListener("activate", (event) => {
+  // Existing installations may still have a subscription from the browser-alert release.
   event.waitUntil(
     (async () => {
-      const url = new URL("/flights?view=inbox", self.location.origin).href;
-      const windows = await self.clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
-      const open = windows.find(
-        (w) => new URL(w.url).origin === self.location.origin,
-      );
-      if (open) {
-        await open.focus();
-        open.postMessage({ type: "open-inbox" });
-      } else await self.clients.openWindow(url);
+      try {
+        const subscription =
+          await self.registration.pushManager?.getSubscription();
+        if (subscription) await subscription.unsubscribe();
+      } catch {
+        // Some browsers disable subscription access after the user revokes permission.
+      }
     })(),
   );
 });

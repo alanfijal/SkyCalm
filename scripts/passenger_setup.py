@@ -1,7 +1,6 @@
 """Validate private provider files locally or explicitly provision an approved deployment."""
 
 import argparse
-import base64
 import json
 import os
 import subprocess
@@ -39,33 +38,6 @@ def read_google(path):
     return {k: web[k] for k in ("client_id", "client_secret")}
 
 
-def b64(value):
-    return base64.urlsafe_b64encode(value).decode().rstrip("=")
-
-
-def prepare(directory):
-    google = read_google(directory / "google-oauth.json")
-    path = directory / "vapid.json"
-    if not path.exists():
-        from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.primitives.asymmetric import ec
-
-        key = ec.generate_private_key(ec.SECP256R1())
-        write_private(
-            path,
-            {
-                "publicKey": b64(
-                    key.public_key().public_bytes(
-                        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
-                    )
-                ),
-                "privateKey": b64(key.private_numbers().private_value.to_bytes(32, "big")),
-            },
-        )
-    vapid = private_file(path)
-    return {"google": google, "vapid": vapid}
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--private-dir", type=Path, required=True)
@@ -81,11 +53,10 @@ def main():
     directory = a.private_dir.resolve()
     if directory.stat().st_mode & 0o077:
         raise SystemExit("The private directory must have mode 700.")
-    providers = prepare(directory)
+    google = read_google(directory / "google-oauth.json")
     config = {
         "passenger_settings": {
             "google_ready": True,
-            "vapid_public": providers["vapid"]["publicKey"],
             "classroom_email": a.classroom_email,
         }
     }
@@ -94,12 +65,13 @@ def main():
     vars_path = directory / "passengers.tfvars.json"
     if not vars_path.exists():
         write_private(vars_path, config)
-    elif private_file(vars_path) != config:
-        raise SystemExit(
-            "Existing local settings differ. Review the existing private configuration."
-        )
+    else:
+        existing = private_file(vars_path)
+        existing.get("passenger_settings", {}).pop("vapid_public", None)
+        if existing != config:
+            raise SystemExit("Existing local settings differ. Review the private configuration.")
     if not a.provision_approved_secrets:
-        print("Validated Google redirect and prepared local VAPID and public runtime settings.")
+        print("Validated Google redirect and classroom email configuration.")
         return
     cli = ["aws", "--profile", a.profile, "--region", REGION, "--no-cli-pager"]
     if (
@@ -111,56 +83,55 @@ def main():
     ):
         raise SystemExit("AWS account mismatch.")
     with TemporaryDirectory(dir=directory) as temp:
-        for name, value in providers.items():
-            secret = f"skycalm-dev/passengers/{name}"
-            versions = json.loads(
+        secret = "skycalm-dev/passengers/google"
+        versions = json.loads(
+            subprocess.check_output(
+                [
+                    *cli,
+                    "secretsmanager",
+                    "list-secret-version-ids",
+                    "--secret-id",
+                    secret,
+                    "--output",
+                    "json",
+                ]
+            )
+        )
+        if versions.get("Versions"):
+            existing = json.loads(
                 subprocess.check_output(
                     [
                         *cli,
                         "secretsmanager",
-                        "list-secret-version-ids",
+                        "get-secret-value",
                         "--secret-id",
                         secret,
+                        "--query",
+                        "SecretString",
                         "--output",
-                        "json",
+                        "text",
                     ]
                 )
             )
-            if versions.get("Versions"):
-                existing = json.loads(
-                    subprocess.check_output(
-                        [
-                            *cli,
-                            "secretsmanager",
-                            "get-secret-value",
-                            "--secret-id",
-                            secret,
-                            "--query",
-                            "SecretString",
-                            "--output",
-                            "text",
-                        ]
-                    )
-                )
-                if existing != value:
-                    raise SystemExit("Existing secret differs. Review rotation separately.")
-                continue
-            path = Path(temp) / name
-            write_private(path, value)
-            subprocess.run(
-                [
-                    *cli,
-                    "secretsmanager",
-                    "put-secret-value",
-                    "--secret-id",
-                    secret,
-                    "--secret-string",
-                    "file://" + str(path),
-                ],
-                check=True,
-                stdout=subprocess.DEVNULL,
-            )
-    print("Both provider secrets are provisioned.")
+            if existing != google:
+                raise SystemExit("Existing secret differs. Review rotation separately.")
+            return
+        path = Path(temp) / "google"
+        write_private(path, google)
+        subprocess.run(
+            [
+                *cli,
+                "secretsmanager",
+                "put-secret-value",
+                "--secret-id",
+                secret,
+                "--secret-string",
+                "file://" + str(path),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+    print("Google provider credentials are provisioned.")
 
 
 if __name__ == "__main__":

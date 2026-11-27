@@ -7,7 +7,6 @@ export interface Settings {
     domain: string;
     issuer: string;
     clientId: string;
-    vapidPublicKey: string;
   };
 }
 type Auth = NonNullable<Settings["auth"]>;

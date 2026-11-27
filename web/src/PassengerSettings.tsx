@@ -5,6 +5,12 @@ import { clocks, flightHref, noticeNames } from "./journey";
 import type { Flight, Notice, Preferences } from "./journey";
 import type { Airport } from "./types";
 
+const deliveryLabels: Record<string, string> = {
+  email: "Email accepted by SES",
+  "email-rejected": "In-app · Email rejected",
+  push: "Sent to browser",
+};
+
 export function airportLabel(code: string): Airport | null {
   return code
     ? { code, city: code, name: code, country: "", lat: 0, lon: 0 }
@@ -118,7 +124,7 @@ export function TravelPreferences({
           checked={quiet}
           onChange={(e) => setQuiet(e.target.checked)}
         />
-        Quiet hours for email and browser alerts
+        Quiet hours for email
       </label>
       {quiet && (
         <>
@@ -164,12 +170,12 @@ export function TravelPreferences({
 }
 export function SetupChecklist({
   hasFlight,
-  notifications,
+  email,
   add,
   account,
 }: {
   hasFlight: boolean;
-  notifications: boolean;
+  email: boolean;
   add: () => void;
   account: () => void;
 }) {
@@ -184,7 +190,7 @@ export function SetupChecklist({
   const installed =
     window.matchMedia("(display-mode: standalone)").matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone;
-  if (hidden || (hasFlight && notifications && installed)) return null;
+  if (hidden || (hasFlight && email && installed)) return null;
   const ua = navigator.userAgent;
   const steps = /iPhone|iPad/.test(ua)
     ? "In Safari, open Share, choose Add to Home Screen and confirm."
@@ -197,7 +203,7 @@ export function SetupChecklist({
     <details className="pass-card setup-checklist">
       <summary>
         Getting started ·{" "}
-        {[hasFlight, notifications, installed].filter(Boolean).length}/3
+        {[hasFlight, email, installed].filter(Boolean).length}/3
         complete
       </summary>
       <ol>
@@ -209,10 +215,10 @@ export function SetupChecklist({
           )}
         </li>
         <li>
-          {notifications ? (
-            "Notifications enabled"
+          {email ? (
+            "Email alerts enabled"
           ) : (
-            <button onClick={account}>Set up notifications</button>
+            <button onClick={account}>Set up optional email alerts</button>
           )}
         </li>
         <li>
@@ -303,11 +309,7 @@ export function NoticeCentre({
                       minute: "2-digit",
                     })}{" "}
                     UTC ·{" "}
-                    {n.delivery === "push"
-                      ? "Sent to browser"
-                      : n.delivery === "email"
-                        ? "Sent by email"
-                        : "In-app"}
+                    {deliveryLabels[n.delivery] ?? "In-app"}
                   </p>
                   {n.sentBody && (
                     <details>

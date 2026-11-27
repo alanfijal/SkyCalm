@@ -1,4 +1,3 @@
-import json
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
