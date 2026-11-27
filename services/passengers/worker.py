@@ -197,8 +197,8 @@ def deliver(store, owner, sk, now):
             Destination={"ToAddresses": [prefs["email"]]},
             Content={
                 "Simple": {
-                    "Subject": {"Data": "SkyCalm flight update"},
-                    "Body": {"Text": {"Data": body}},
+                    "Subject": {"Data": "SkyCalm flight update", "Charset": "UTF-8"},
+                    "Body": {"Text": {"Data": body, "Charset": "UTF-8"}},
                 }
             },
         )

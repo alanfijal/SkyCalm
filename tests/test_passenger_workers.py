@@ -135,6 +135,7 @@ def test_email_and_inbox_survive_duplicate_delivery_and_legacy_device(store, mon
     client.assert_called_once_with("sesv2")
     sender.send_email.assert_called_once()
     message = sender.send_email.call_args.kwargs
+    assert message["Content"]["Simple"]["Body"]["Text"]["Charset"] == "UTF-8"
     inbox = api.view(store, OWNER, T)["inbox"]
     assert len(inbox) == 1 and inbox[0]["delivery"] == "email"
     assert inbox[0]["sentBody"] == message["Content"]["Simple"]["Body"]["Text"]["Data"]
