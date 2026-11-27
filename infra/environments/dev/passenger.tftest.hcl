@@ -12,6 +12,15 @@ run "passenger_controls" {
   command = plan
   module { source = "../../modules/forecast" }
   assert {
+    condition = (
+      aws_apigatewayv2_route.family_preview.route_key == "GET /family/{ticket}" &&
+      aws_apigatewayv2_route.family_preview.authorization_type == "NONE" &&
+      anytrue([for r in aws_apigatewayv2_stage.forecast.route_settings : r.route_key == "GET /family/{ticket}" && r.throttling_rate_limit == 2 && r.throttling_burst_limit == 4]) &&
+      !strcontains(aws_apigatewayv2_stage.forecast.access_log_settings[0].format, "$context.path")
+    )
+    error_message = "Family previews use a bounded GET route and route-template logging."
+  }
+  assert {
     condition = alltrue([for f in concat(
       [aws_lambda_function.forecast, aws_lambda_function.observations, aws_lambda_function.passenger_admission],
       values(aws_lambda_function.passenger)

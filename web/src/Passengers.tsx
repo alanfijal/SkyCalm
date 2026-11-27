@@ -1,3 +1,4 @@
+import { Skeleton } from "./PageSkeleton";
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -243,7 +244,7 @@ export default function Passengers({
           <img src="/skycalm.svg" width="32" height="32" alt="" />
           SkyCalm
         </a>
-        <a href="/">
+        <a href="/forecast">
           <ArrowLeft size={16} /> Forecast
         </a>
       </header>
@@ -262,7 +263,7 @@ export default function Passengers({
         )}
         {message && <p role="status">{message}</p>}
         {!settings ? (
-          <p>Loading…</p>
+          <Skeleton label="Loading…" />
         ) : !settings.auth ? (
           <p>Passenger sign-in is unavailable in this environment.</p>
         ) : !signedIn() || (admin && !canOperate()) ? (
@@ -635,7 +636,7 @@ export default function Passengers({
             )}
           </>
         ) : (
-          <p>Loading your flights…</p>
+          <Skeleton label="Loading your flights…" />
         )}
       </div>
     </main>

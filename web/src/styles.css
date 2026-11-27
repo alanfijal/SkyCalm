@@ -1,5 +1,53 @@
 @import "tailwindcss";
 
+.route-print {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 30;
+  transform: translateY(-180%);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.7rem 1rem;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-control);
+}
+.skip-link:focus {
+  transform: none;
+}
+.loading-page {
+  padding-block: 4rem;
+}
+.load-skeleton {
+  display: grid;
+  gap: 0.7rem;
+  padding: var(--pad);
+  min-height: 6rem;
+  align-content: center;
+}
+.load-skeleton i {
+  display: block;
+  height: 0.8rem;
+  width: 75%;
+  border-radius: 0.35rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+.load-skeleton i:first-of-type {
+  width: 38%;
+  height: 1.35rem;
+}
+.load-skeleton i:last-of-type {
+  width: 58%;
+}
+
 :root {
   --bg: #0b1220;
   --surface: #121a2b;
@@ -15,6 +63,22 @@
   --turb-severe: #e4572e;
   --turb-none: #5b6b85;
 
+  /* Shared type, spacing, radius and elevation scales. */
+  --type-small: 0.875rem;
+  --type-body: 1rem;
+  --type-section: clamp(1.125rem, 0.98rem + 0.42vw, 1.42rem);
+  --type-title: clamp(2rem, 4vw, 3.5rem);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-control: 0.65rem;
+  --radius-panel: 1.1rem;
+  --elevation-panel: 0 12px 38px -24px var(--shadow);
+  --control-border: #63738e;
+  --link-color: var(--accent);
   --on-accent: var(--bg);
   --map-water: #101b30;
   --map-land: #273650;
@@ -27,7 +91,7 @@
   --gutter: clamp(0.875rem, 3vw, 5rem);
   --gap: clamp(0.75rem, 1.15vw, 1.5rem);
   --pad: clamp(1rem, 1.45vw, 1.75rem);
-  --map-height: clamp(16rem, calc(100svh - 32.5rem), 43rem);
+  --map-height: clamp(15rem, calc(100svh - 35rem), 43rem);
 
   color-scheme: dark;
   color: var(--text);
@@ -51,6 +115,8 @@
   --turb-moderate: #d0661a;
   --turb-severe: #c23a1c;
 
+  --control-border: #808b9c;
+  --link-color: color-mix(in srgb, var(--accent) 82%, var(--text));
   --on-accent: var(--surface);
   --map-water: #dfe9f5;
   --map-land: #f9fbfe;
@@ -75,6 +141,7 @@ p {
 body {
   min-inline-size: 0;
   line-height: 1.45;
+  font-variant-numeric: tabular-nums;
 }
 button,
 input,
@@ -103,7 +170,7 @@ input {
   text-wrap: balance;
 }
 h2 {
-  font-size: clamp(1.125rem, 0.98rem + 0.42vw, 1.42rem);
+  font-size: var(--type-section);
   font-weight: 620;
   line-height: 1.25;
   letter-spacing: -0.035em;
@@ -142,7 +209,7 @@ h2 {
   border-radius: 0.58rem;
 }
 .save-route-link {
-  color: var(--accent);
+  color: var(--link-color);
   margin-inline-start: auto;
   font-weight: 600;
   white-space: nowrap;
@@ -195,7 +262,7 @@ h2 {
   .swap,
   .empty-map button
 ):hover {
-  color: var(--accent);
+  color: var(--link-color);
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
 }
@@ -228,7 +295,7 @@ h2 {
 }
 .forecast-intro a,
 .history-intro a {
-  color: var(--accent);
+  color: var(--link-color);
   text-decoration: underline;
   text-underline-offset: 0.18em;
 }
@@ -248,7 +315,7 @@ h2 {
   display: grid;
   place-items: center;
   flex: none;
-  color: var(--accent);
+  color: var(--link-color);
 }
 .source-control[data-replay="true"] .source-icon,
 .data-note[data-replay="true"] > svg {
@@ -464,7 +531,7 @@ h2 {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 .airport-menu li strong {
-  color: var(--accent);
+  color: var(--link-color);
 }
 .airport-menu li > span {
   flex: 1;
@@ -548,7 +615,7 @@ h2 {
   padding-block-start: 1.1rem;
 }
 .data-note > svg {
-  color: var(--accent);
+  color: var(--link-color);
   flex: none;
 }
 .data-note b {
@@ -610,7 +677,7 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 .route-stat svg {
-  color: var(--accent);
+  color: var(--link-color);
 }
 .route-stat i {
   block-size: 0.8em;
@@ -659,7 +726,7 @@ h2 {
 .empty-icon {
   display: grid;
   place-items: center;
-  color: var(--accent);
+  color: var(--link-color);
   inline-size: 3rem;
   block-size: 3rem;
   background: var(--surface-raised);
@@ -812,7 +879,7 @@ h2 {
   margin-block-start: 1.1rem;
   font-size: 1rem;
   font-weight: 650;
-  color: var(--accent);
+  color: var(--link-color);
 }
 .guide-dialog p {
   margin-block-start: 0.3rem;
@@ -1065,5 +1132,42 @@ h2 {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+.source-placeholder {
+  min-height: 2.75rem;
+  min-width: 12rem;
+}
+.source-placeholder span {
+  display: block;
+  width: 6.5rem;
+  height: 0.75rem;
+  background: var(--border);
+  border-radius: 0.25rem;
+}
+.map-card[data-awaiting-route="true"] .empty-map {
+  min-height: calc(var(--map-height) + 10rem);
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+}
+.map-card[data-awaiting-route="true"] .load-skeleton {
+  height: calc(var(--map-height) + 4rem);
+  gap: 0.65rem;
+  align-content: start;
+  text-align: start;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(
+    to bottom,
+    var(--surface) 0 4rem,
+    var(--map-water) 4rem
+  );
+}
+@media (max-width: 43rem) {
+  .planner[data-awaiting-route="true"][data-expanded="false"] {
+    min-height: 5.55rem;
+  }
+  .map-card[data-awaiting-route="true"] .empty-map {
+    min-height: calc(var(--map-height) + 14.15rem);
   }
 }

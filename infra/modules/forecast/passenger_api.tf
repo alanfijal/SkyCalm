@@ -56,3 +56,17 @@ resource "aws_lambda_permission" "shared_forecast" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.forecast.execution_arn}/$default/POST/api/shared"
 }
+
+resource "aws_apigatewayv2_route" "family_preview" {
+  api_id             = aws_apigatewayv2_api.forecast.id
+  route_key          = "GET /family/{ticket}"
+  target             = "integrations/${aws_apigatewayv2_integration.passengers.id}"
+  authorization_type = "NONE"
+}
+resource "aws_lambda_permission" "family_preview" {
+  statement_id  = "RenderOneFamilyPreview"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.passenger["api"].function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.forecast.execution_arn}/$default/GET/family/*"
+}

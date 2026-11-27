@@ -12,7 +12,7 @@
   justify-content: space-between;
 }
 .passenger-page a {
-  color: var(--accent);
+  color: var(--link-color);
   text-decoration: none;
 }
 .pass-nav a,
@@ -91,7 +91,7 @@
 .pass-shell .pass-primary,
 .pass-tabs [aria-current] {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--link-color);
 }
 .pass-shell button:disabled {
   opacity: 0.5;
@@ -126,7 +126,7 @@
   min-width: 0;
 }
 .pass-shell .pass-error {
-  color: var(--turb-moderate);
+  color: var(--text);
 }
 .pass-notice {
   padding: 0.8rem 0;

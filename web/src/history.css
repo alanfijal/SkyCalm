@@ -96,7 +96,7 @@
 }
 .history-card summary {
   cursor: pointer;
-  color: var(--accent);
+  color: var(--link-color);
 }
 .history-card .history-field {
   margin: 1rem 0;

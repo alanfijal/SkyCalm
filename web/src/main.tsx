@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/dm-sans/wght.css";
 import "./styles.css";
 import Router from "./Router";
 import { CabinGuideProvider } from "./CabinGuide";

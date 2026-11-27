@@ -1,6 +1,9 @@
+import { Skeleton } from "./PageSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import RouteGlobe from "./RouteGlobe";
+import { ForecastMap } from "./ForecastMap";
+import { FlightSheet } from "./FlightSheet";
+import { useMedia } from "./useMedia";
 import Timeline from "./Timeline";
 import { forecastLevels, LevelButton } from "./CabinGuide";
 import {
@@ -41,6 +44,16 @@ function Player({
   const playback = useRoutePlayback(samples, index, setIndex);
   const theme =
     document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const mobileSheet = useMedia("(max-width:43rem)");
+  const timeline = (
+    <Timeline
+      forecast={flight}
+      index={index}
+      onSelect={playback.select}
+      observations={null}
+      playing={playback.playing}
+    />
+  );
   const date = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "long",
     timeZone: "UTC",
@@ -70,15 +83,16 @@ function Player({
             {flight.distanceKm.toLocaleString("en-GB")} km recorded
           </span>
         </div>
-        <RouteGlobe
+        <ForecastMap
+          forecast={flight}
           theme={theme}
-          samples={samples}
-          origin={flight.origin}
-          destination={flight.destination}
           selected={index}
           onSelect={playback.select}
           observations={noObservations}
         />
+        {mobileSheet && (
+          <FlightSheet level={flight.peak}>{timeline}</FlightSheet>
+        )}
         <div className="legend" aria-label="Forecast intensity legend">
           <b>Forecast</b>
           {forecastLevels.map((c) => (
@@ -87,13 +101,7 @@ function Player({
         </div>
         <PlaybackControls playback={playback} current={current} recorded />
       </section>
-      <Timeline
-        forecast={flight}
-        index={index}
-        onSelect={playback.select}
-        observations={null}
-        playing={playback.playing}
-      />
+      {!mobileSheet && timeline}
       <footer className="recording-sources">
         <p>
           <a href={flight.sourceUrl}>ADSB.lol</a> recorded {flight.positions}{" "}
@@ -147,13 +155,22 @@ export default function RecordedFlight({ id }: { id: string | null }) {
     <>
       <header className="topbar">
         <div className="nav-inner">
-          <a href="/" className="brand" aria-label="SkyCalm flight forecast">
+          <a href="/" className="brand" aria-label="SkyCalm home">
             <img src="/skycalm.svg" width="32" height="32" alt="" />
             SkyCalm
           </a>
-          <a href="/recordings" className="guide-button">
-            <ArrowLeft size={16} /> Recorded flights
-          </a>
+          <nav className="replay-nav" aria-label="Main navigation">
+            <a
+              href="/forecast"
+              className="guide-button"
+              aria-label="Flight forecast"
+            >
+              Forecast
+            </a>
+            <a href="/recordings" className="guide-button">
+              <ArrowLeft size={16} /> Recorded flights
+            </a>
+          </nav>
         </div>
       </header>
       <main className="shell recording">
@@ -177,7 +194,7 @@ export default function RecordedFlight({ id }: { id: string | null }) {
             </button>
           </div>
         ) : (
-          <p role="status">Loading the recorded flight…</p>
+          <Skeleton label="Loading the recorded flight…" />
         )}
       </main>
     </>

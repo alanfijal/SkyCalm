@@ -52,7 +52,9 @@ export async function signIn(a: Auth, path: string) {
   const verifier = oauth.generateRandomCodeVerifier(),
     state = oauth.generateRandomState(),
     nonce = oauth.generateRandomNonce();
-  const safePath = ["/", "/demo", "/health"].includes(path) ? path : "/flights";
+  const safePath = ["/", "/forecast", "/demo", "/health"].includes(path)
+    ? path
+    : "/flights";
   const scopes = [
     "openid",
     "email",
@@ -164,8 +166,10 @@ export async function finishSignIn(a: Auth, url: URL) {
     admin: Array.isArray(groups) && groups.includes("admins"),
     operator: tx.path === "/demo" || tx.path === "/health",
   };
-  return ["/", "/demo", "/health"].includes(tx.path)
-    ? tx.path
+  return ["/", "/forecast", "/demo", "/health"].includes(tx.path)
+    ? tx.path === "/"
+      ? "/forecast"
+      : tx.path
     : typeof tx.flight === "string" && /^[0-9a-f-]{36}$/.test(tx.flight)
       ? "/flights?flight=" + encodeURIComponent(tx.flight)
       : tx.inbox

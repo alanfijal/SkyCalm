@@ -1,13 +1,25 @@
+import base64
 import hashlib
 from datetime import UTC, datetime
 
 import numpy as np
 import pytest
 
-from grid.compute import STEP, diagnostics
+from grid.compute import LATS, LONS, STEP, cruise_wind, diagnostics
 from grid.source import FIELDS, GfsSource, NotReady, SourceError, select_records
 from services.forecast.schema import LEADS, SCORER, tile_name
 from services.forecast.storage import LocalStore
+
+
+def test_cruise_wind_preserves_components_position_and_missing_values():
+    lat, lon = np.meshgrid(LATS, LONS, indexing="ij")
+    u, v = lon.copy(), lat.copy()
+    u[17, 17] = np.nan
+    frame = cruise_wind({("UGRD", "250 mb"): u, ("VGRD", "250 mb"): v})
+    wind = np.frombuffer(base64.b64decode(frame), dtype=np.int8).reshape(10, 18, 2)
+    assert tuple(wind[0, 0]) == (-25, 34)
+    assert tuple(wind[1, 1]) == (-128, 38)
+    assert tuple(wind[-1, -1]) == (43, 70)
 
 
 def test_index_selects_required_fields_and_uses_file_size_for_last_record() -> None:

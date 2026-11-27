@@ -1,5 +1,5 @@
-import { Clock3, Mountain, Wind } from "lucide-react";
-import { useRef } from "react";
+import { Armchair, Clock3, Mountain, Wind } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   guide,
   knownLevel,
@@ -40,8 +40,33 @@ export default function Timeline({
     }).format(new Date(iso));
   const explain = useCabinGuide();
   const press = useRef<{ x: number; y: number } | null>(null);
+  const pending = useRef<number | undefined>(undefined);
+  const [scrubbing, setScrubbing] = useState(false);
+  useEffect(
+    () => () => {
+      if (pending.current !== undefined) cancelAnimationFrame(pending.current);
+    },
+    [],
+  );
+  function scrub(value: number) {
+    if (pending.current !== undefined) cancelAnimationFrame(pending.current);
+    if (!press.current) {
+      onSelect(value);
+      return;
+    }
+    pending.current = requestAnimationFrame(() => {
+      pending.current = undefined;
+      onSelect(value);
+    });
+  }
+  const phases: { name: string; count: number }[] = [];
+  for (const sample of samples.slice(0, -1)) {
+    const last = phases.at(-1);
+    if (last?.name === sample.phase) last.count++;
+    else phases.push({ name: sample.phase, count: 1 });
+  }
   const p = samples[index];
-  const ratio = (index / (samples.length - 1)) * 100;
+  const ratio = (index / Math.max(1, samples.length - 1)) * 100;
   const peak = guide.levels[p.category].label;
   let detail = "This part of the route has insufficient weather data.";
   if (p.method === "ti1")
@@ -84,7 +109,8 @@ export default function Timeline({
               {samples.slice(0, -1).map((s, i) => (
                 <span
                   key={i}
-                  style={{ background: categoryColor(s.category) }}
+                  data-level={s.category}
+                  style={{ backgroundColor: categoryColor(s.category) }}
                 />
               ))}
             </div>
@@ -100,16 +126,19 @@ export default function Timeline({
               min="0"
               max={samples.length - 1}
               value={index}
-              onChange={(e) => onSelect(Number(e.target.value))}
+              onChange={(e) => scrub(Number(e.target.value))}
               onPointerDown={(e) => {
                 press.current = { x: e.clientX, y: e.clientY };
+                setScrubbing(true);
               }}
               onPointerCancel={() => {
                 press.current = null;
+                setScrubbing(false);
               }}
               onPointerUp={(e) => {
                 const start = press.current;
                 press.current = null;
+                setScrubbing(false);
                 if (
                   !start ||
                   Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5
@@ -126,6 +155,8 @@ export default function Timeline({
                     ),
                   ),
                 );
+                if (pending.current !== undefined)
+                  cancelAnimationFrame(pending.current);
                 onSelect(band);
                 explain(samples[band].category, e.currentTarget, {
                   x: e.clientX,
@@ -140,6 +171,13 @@ export default function Timeline({
               }}
             />
           </div>
+          <div className="flight-phases" aria-label="Flight phases">
+            {phases.map((phase, i) => (
+              <span key={i} style={{ flexGrow: phase.count }}>
+                {phase.name}
+              </span>
+            ))}
+          </div>
           <div className="track-times">
             <span>{routeTime(forecast.departure)}</span>
             <span>{routeTime(samples.at(-1)!.at)}</span>
@@ -149,7 +187,10 @@ export default function Timeline({
             see how it may feel.
           </p>
         </div>
-        <div className="sample-detail" aria-live={playing ? "off" : "polite"}>
+        <div
+          className="sample-detail"
+          aria-live={playing || scrubbing ? "off" : "polite"}
+        >
           <div className="detail-heading">
             <LevelButton level={p.category} marker>
               <strong>{peak}</strong>{" "}
@@ -159,6 +200,12 @@ export default function Timeline({
             </LevelButton>
             <span>{p.phase}</span>
           </div>
+          {(p.category === "moderate" || p.category === "severe") && (
+            <p className="seatbelt-indicator">
+              <Armchair aria-hidden="true" size={16} /> Keep your seatbelt
+              fastened while seated.
+            </p>
+          )}
           <div className="sample-facts">
             <span>
               <Clock3 size={14} />

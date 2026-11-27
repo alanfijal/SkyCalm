@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 test("the public replay plays, pauses, scrubs and restarts at the recorded airports", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/forecast");
   await page.getByRole("link", { name: "Search recorded flights" }).click();
   await page.getByRole("searchbox").fill("Catania to Milan");
   await page.getByRole("link", { name: /AZ1704.*Play recording/ }).click();
@@ -43,11 +43,11 @@ test("the public replay plays, pauses, scrubs and restarts at the recorded airpo
   await timeline.fill("9");
   await expect(page.getByRole("button", { name: "Play replay" })).toBeVisible();
   await page.setViewportSize({ width: 360, height: 800 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth - innerWidth,
-    ),
-  ).toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    )
+    .toBe(0);
   const scan = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
@@ -121,7 +121,7 @@ test("only the matching schedule leg and date link to the archive", async ({
       },
     });
   });
-  await page.goto("/");
+  await page.goto("/forecast");
   await page
     .getByRole("button", { name: "Flight number", exact: true })
     .click();
@@ -154,7 +154,7 @@ test("search by flight number or callsign opens the dated recording while signed
     calls++;
     return r.fulfill({ status: 503 });
   });
-  await page.goto("/");
+  await page.goto("/forecast");
   await page
     .getByRole("button", { name: "Flight number", exact: true })
     .click();
@@ -191,11 +191,11 @@ test("search remembers the flight direction and date on mobile and handles unkno
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
   expect(scan.violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth - innerWidth,
-    ),
-  ).toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    )
+    .toBe(0);
   await results.click();
   await expect(
     page.getByRole("heading", { name: "Turin to Manchester" }),
@@ -214,7 +214,7 @@ test("search remembers the flight direction and date on mobile and handles unkno
 test("airport selection surfaces archived flights and a weather forecast route can play independently", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/forecast");
   await page.getByLabel("Weather source").selectOption("gfs-20261121-06");
   const playback = page.getByRole("button", { name: "Play forecast route" });
   await expect(playback).toBeVisible();

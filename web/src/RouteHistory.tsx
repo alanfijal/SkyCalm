@@ -1,3 +1,4 @@
+import { Skeleton } from "./PageSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { LevelButton } from "./CabinGuide";
@@ -66,7 +67,7 @@ export default function RouteHistory() {
             <img src="/skycalm.svg" width="32" height="32" alt="" />
             SkyCalm
           </a>
-          <a className="guide-button" href="/">
+          <a className="guide-button" href="/forecast">
             <ArrowLeft size={16} /> Flight forecast
           </a>
         </div>
@@ -92,7 +93,7 @@ export default function RouteHistory() {
             The route archive could not be loaded. Reload to try again.
           </p>
         ) : !day ? (
-          <p role="status">Loading the route archive…</p>
+          <Skeleton label="Loading the route archive…" />
         ) : (
           <div className="history-grid">
             <section className="history-card" aria-labelledby="history-peaks">

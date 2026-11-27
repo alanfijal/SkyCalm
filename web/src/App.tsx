@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -34,7 +32,10 @@ import { PlaybackControls, useRoutePlayback } from "./RoutePlayback";
 import { config } from "./passengerAuth";
 import { archiveForDeparture, type ScheduledFlight } from "./flightSchedule";
 import Timeline from "./Timeline";
-import WeatherLayers from "./WeatherLayers";
+import { ForecastMap } from "./ForecastMap";
+import { FlightSheet } from "./FlightSheet";
+import { useMedia } from "./useMedia";
+import { Skeleton } from "./PageSkeleton";
 import { nearby, type LayerChoice } from "./observations";
 import { useObservations } from "./useObservations";
 import { applyTheme, type Theme } from "./theme";
@@ -49,7 +50,6 @@ import {
 } from "./types";
 import type { Airport, Catalog, Forecast, Run } from "./types";
 
-const RouteGlobe = lazy(() => import("./RouteGlobe"));
 const fmt = (d: Run) => dateLabel(d.issued) + " · " + clock(d.issued) + " UTC";
 
 export default function App() {
@@ -136,6 +136,7 @@ export default function App() {
               ? { arrival: schedule.arrival.time.utc }
               : {}),
             run,
+            wind: "1",
           },
           ctrl.signal,
         );
@@ -244,12 +245,25 @@ export default function App() {
     source === "latest"
       ? catalog?.latest
       : catalog?.replays.find((r) => r.runId === source);
-  const formExpanded = editing || !forecast;
+  const formExpanded = editing || (!forecast && !loading);
   const routeRecordings = recordingsByRoute(origin?.code, dest?.code);
   const themeAction =
     theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+  const mobileSheet = useMedia("(max-width:43rem)");
+  const timeline = forecast && (
+    <Timeline
+      forecast={forecast}
+      index={point}
+      onSelect={playback.select}
+      observations={nearbyWeather}
+      playing={playback.playing}
+    />
+  );
   return (
     <>
+      <a href="#forecast" className="skip-link">
+        Skip to forecast
+      </a>
       <header className="topbar">
         <div className="nav-inner">
           <a href="/" className="brand" aria-label="SkyCalm home">
@@ -289,7 +303,7 @@ export default function App() {
           </div>
         </div>
       </header>
-      <main id="forecast" className="shell">
+      <main id="forecast" tabIndex={-1} className="shell">
         <div className="page-title">
           <div>
             <h1>Flight forecast</h1>
@@ -298,6 +312,14 @@ export default function App() {
               <a href="/recordings">Search recorded flights</a>
             </p>
           </div>
+          {!catalog && loading && (
+            <div
+              className="source-control source-placeholder"
+              aria-hidden="true"
+            >
+              <span />
+            </div>
+          )}
           {catalog && (
             <div className="source-control" data-replay={source !== "latest"}>
               <span className="source-icon">
@@ -336,6 +358,7 @@ export default function App() {
           <section
             className="planner card"
             data-expanded={formExpanded}
+            data-awaiting-route={!forecast && loading}
             aria-label="Your flight"
           >
             <div className="planner-heading">
@@ -544,7 +567,11 @@ export default function App() {
                 )}
             </div>
           </section>
-          <section className="map-card card" aria-label="Flight map">
+          <section
+            className="map-card card"
+            aria-label="Flight map"
+            data-awaiting-route={!forecast && loading && !error}
+          >
             {forecast ? (
               <>
                 <div className="map-title">
@@ -571,29 +598,24 @@ export default function App() {
                     {forecast.distanceKm.toLocaleString("en-GB")} km
                   </span>
                 </div>
-                <div className="map-viewport">
-                  <WeatherLayers
-                    choice={layerChoice}
-                    onChange={setLayerChoice}
-                    data={weather.data}
-                    loading={weather.loading}
-                    error={weather.error}
-                    onRetry={weather.retry}
-                  />
-                  <Suspense
-                    fallback={<div className="map-wait">Loading the map…</div>}
-                  >
-                    <RouteGlobe
-                      theme={theme}
-                      samples={forecast.samples}
-                      origin={forecast.origin}
-                      destination={forecast.destination}
-                      selected={point}
-                      onSelect={playback.select}
-                      observations={visibleWeather}
-                    />
-                  </Suspense>
-                </div>
+                <ForecastMap
+                  forecast={forecast}
+                  theme={theme}
+                  selected={point}
+                  onSelect={playback.select}
+                  observations={visibleWeather}
+                  weather={{
+                    choice: layerChoice,
+                    onChange: setLayerChoice,
+                    data: weather.data,
+                    loading: weather.loading,
+                    error: weather.error,
+                    onRetry: weather.retry,
+                  }}
+                />
+                {mobileSheet && (
+                  <FlightSheet level={forecast.peak}>{timeline}</FlightSheet>
+                )}
                 <div className="legend" aria-label="Intensity legend">
                   {forecastLevels.map((c) => (
                     <LevelButton key={c} level={c} marker />
@@ -611,13 +633,14 @@ export default function App() {
                 )}
               </>
             ) : (
-              <div className="empty-map" role={error ? "alert" : "status"}>
-                <span className="empty-icon">
-                  <Navigation size={26} />
-                </span>
-                <h2>
-                  {error ? "Forecast unavailable" : "Loading your route…"}
-                </h2>
+              <div className="empty-map" role={error ? "alert" : undefined}>
+                {!error && <Skeleton label="Loading your route…" />}
+                {error && (
+                  <span className="empty-icon">
+                    <Navigation size={26} />
+                  </span>
+                )}
+                {error && <h2>Forecast unavailable</h2>}
                 {error && <p>{error}</p>}
                 {error && !catalog && (
                   <button onClick={() => setAttempt((a) => a + 1)}>
@@ -628,15 +651,7 @@ export default function App() {
             )}
           </section>
         </div>
-        {forecast && (
-          <Timeline
-            forecast={forecast}
-            index={point}
-            onSelect={playback.select}
-            observations={nearbyWeather}
-            playing={playback.playing}
-          />
-        )}
+        {!mobileSheet && timeline}
         <footer className="foot">
           <Info size={14} />
           <p>

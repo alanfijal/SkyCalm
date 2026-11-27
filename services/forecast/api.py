@@ -201,6 +201,7 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
     except (OSError, KeyError, ValueError, TypeError):
         briefing = select(options, [0, 0])
     classes = [p["category"] for p in points if p["category"] in CATEGORIES]
+    wind = [entry.get("wind250") for entry in manifest["leads"]]
     return {
         "origin": origin,
         "destination": dest,
@@ -211,6 +212,7 @@ def respond(path: str, query: dict[str, str], store, now: datetime | None = None
         "durationMinutes": round(points[-1]["elapsedMinutes"]),
         "peak": max(classes, key=CATEGORIES.index) if classes else "unavailable",
         "samples": points,
+        **({"wind250": wind} if query.get("wind") == "1" and all(wind) else {}),
         **({"altitudeBands": altitude_bands} if levels else {}),
         "briefing": briefing,
         "modelVersion": manifest.get("model", {}).get("version"),

@@ -36,7 +36,7 @@ test("missing forecast data and an unclassified aircraft report have distinct ex
       },
     }),
   );
-  await page.goto("/");
+  await page.goto("/forecast");
   await page
     .locator(".legend")
     .getByRole("button", { name: /^Unavailable ·/ })
@@ -59,7 +59,7 @@ test("Edinburgh to Porto shows the recorded AIREP and Madrid warning on separate
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await page.goto("/forecast");
   await page.getByLabel("Weather source").selectOption("gfs-20261121-06");
   for (const [label, code] of [
     ["Departure", "EDI"],
@@ -111,7 +111,7 @@ test("replay observations are opt-in, dated, and stay with the selected forecast
   page.on("request", (r) => {
     if (r.url().includes("/api/observations")) captures.push(r.url());
   });
-  await page.goto("/");
+  await page.goto("/forecast");
   const source = page.getByLabel("Weather source");
   await source.selectOption("gfs-20261121-06");
   await expect(page.getByRole("slider")).toBeVisible();
@@ -155,8 +155,8 @@ test("an observation outage leaves the forecast usable", async ({ page }) => {
     }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.getByRole("slider").waitFor();
+  await page.goto("/forecast");
+  await page.getByRole("button", { name: /Flight details/ }).waitFor();
   await page.getByText("Map layers", { exact: true }).click();
   await page
     .getByRole("checkbox", { name: "Aircraft weather reports" })
@@ -165,6 +165,8 @@ test("an observation outage leaves the forecast usable", async ({ page }) => {
     page.getByText("No weather observations for this source yet."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+  await page.getByText("Map layers", { exact: true }).click();
+  await page.getByRole("button", { name: /Flight details/ }).click();
   await expect(page.getByRole("slider")).toBeEnabled();
   expect(
     await page.evaluate(

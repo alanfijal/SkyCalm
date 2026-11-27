@@ -61,6 +61,30 @@ def test_thresholds_include_boundaries_and_missing_is_distinct():
     assert sample({}, 37, p)["method"] == "horizon"
 
 
+def test_local_preview_negotiates_the_same_transfer_encoding_as_the_static_site():
+    from services.forecast.local import accepts_gzip
+
+    assert accepts_gzip("br, gzip;q=0.8")
+    for unsupported in ("", "br", "gzip;q=0", "gzip;q=invalid"):
+        assert not accepts_gzip(unsupported)
+
+
+def test_wind_frames_are_optional_and_partial_cycles_stay_unavailable(tmp_path, monkeypatch):
+    store = LocalStore(tmp_path, REPLAY_ROOT)
+    manifest = store.manifest(PIN)
+    frames = json.loads(
+        (REPLAY_ROOT.parents[3] / "web/public/data/wind" / (PIN + ".json")).read_text()
+    )
+    assert len(frames) == len(manifest["leads"]) == 13
+    for lead, frame in zip(manifest["leads"], frames, strict=True):
+        lead["wind250"] = frame
+    monkeypatch.setattr(store, "manifest", lambda _: manifest)
+    assert respond("/api/forecast", params(wind="1"), store, CLOCK)["wind250"] == frames
+    assert "wind250" not in respond("/api/forecast", params(), store, CLOCK)
+    del manifest["leads"][1]["wind250"]
+    assert "wind250" not in respond("/api/forecast", params(wind="1"), store, CLOCK)
+
+
 def test_bilinear_and_temporal_interpolation_use_time_and_position():
     cube = array("h", [0]) * (WIDTH * HEIGHT * PLANES)
     count = WIDTH * HEIGHT

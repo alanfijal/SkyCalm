@@ -1,5 +1,6 @@
 """Decode native pressure fields and score a European grid with a derivative halo."""
 
+import base64
 import gzip
 
 import eccodes as ec
@@ -104,3 +105,10 @@ def encode_features(data) -> bytes:
 
 def encode(fields: dict[tuple[str, str], np.ndarray]) -> bytes:
     return encode_features(features(fields))
+
+
+def cruise_wind(fields: dict[tuple[str, str], np.ndarray]) -> str:
+    """South-to-north, eastward/northward m/s at four-degree intervals from 34N, 25W."""
+    wind = np.stack([fields[k, "250 mb"][1:-1:16, 1:-1:16] for k in ("UGRD", "VGRD")], axis=-1)
+    packed = np.where(np.isfinite(wind), np.clip(np.rint(wind), -127, 127), -128).astype("i1")
+    return base64.b64encode(packed.tobytes()).decode("ascii")

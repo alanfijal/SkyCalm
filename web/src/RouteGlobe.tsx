@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useGlobeWeather, advisoryHatch } from "./globeWeather";
+import { useMedia } from "./useMedia";
 import { useCabinGuide } from "./CabinGuide";
 import { MapLibreOverlay } from "@deck.gl/maplibre";
 import { PathLayer } from "@deck.gl/layers";
@@ -34,6 +36,8 @@ interface Props {
   destination: Airport;
   selected: number;
   observations: WeatherItem[];
+  showNight: boolean;
+  windFrame?: string;
   onSelect: (index: number) => void;
 }
 
@@ -93,6 +97,8 @@ export default function RouteGlobe({
   destination,
   selected,
   observations,
+  showNight,
+  windFrame,
   onSelect,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -105,6 +111,9 @@ export default function RouteGlobe({
   const [map, setMap] = useState<Globe | null>(null);
   const [failed, setFailed] = useState(false);
   const current = samples[selected];
+  const reducedMotion = useMedia("(prefers-reduced-motion: reduce)");
+  const drawnRoute = useRef<Sample[] | null>(null);
+  useGlobeWeather(map, current.at, showNight, windFrame, theme, reducedMotion);
   useEffect(() => {
     select.current = onSelect;
   }, [onSelect]);
@@ -177,6 +186,13 @@ export default function RouteGlobe({
         paint: { "fill-opacity": 0.16 },
       });
       map.addLayer({
+        id: "weather-hatch",
+        type: "fill",
+        source: "observations",
+        filter: ["==", ["get", "kind"], "sigmet"],
+        paint: { "fill-opacity": 0.5 },
+      });
+      map.addLayer({
         id: "weather-lines",
         type: "line",
         source: "observations",
@@ -193,6 +209,11 @@ export default function RouteGlobe({
     }
     const style = getComputedStyle(document.documentElement);
     const color = (token: string) => style.getPropertyValue(token).trim();
+    map.setPaintProperty(
+      "weather-hatch",
+      "fill-pattern",
+      advisoryHatch(map, theme),
+    );
     map.setPaintProperty("weather-areas", "fill-color", color("--accent"));
     map.setPaintProperty("weather-lines", "line-color", color("--accent"));
     map.setPaintProperty("weather-points", "circle-color", color("--replay"));
@@ -232,20 +253,42 @@ export default function RouteGlobe({
       jointRounded: true,
       pickable: true,
     });
-    ribbons.setProps({
-      layers: [
-        line.clone({
-          id: "forecast-halo",
-          getWidth: 6.5,
-          getColor: palette.casing,
-          opacity: 0.48,
-          parameters: { depthWriteEnabled: false },
-          pickable: false,
-        }),
-        line,
-      ],
-    });
-  }, [map, samples, theme]);
+    const paint = (count: number) => {
+      const visible =
+        count === legs.length
+          ? line
+          : line.clone({ data: legs.slice(0, count) });
+      ribbons.setProps({
+        layers: [
+          visible.clone({
+            id: "forecast-halo",
+            getWidth: 6.5,
+            getColor: palette.casing,
+            opacity: 0.48,
+            parameters: { depthWriteEnabled: false },
+            pickable: false,
+          }),
+          visible,
+        ],
+      });
+    };
+    const animate =
+      !reducedMotion && !document.hidden && drawnRoute.current !== samples;
+    drawnRoute.current = samples;
+    if (!animate) {
+      paint(legs.length);
+      return;
+    }
+    const start = performance.now();
+    let request = 0;
+    const draw = (now: number) => {
+      const progress = Math.min(1, Math.max(0, (now - start) / 620));
+      paint(Math.ceil(legs.length * progress));
+      if (progress < 1) request = requestAnimationFrame(draw);
+    };
+    draw(start);
+    return () => cancelAnimationFrame(request);
+  }, [map, samples, theme, reducedMotion]);
 
   useEffect(() => {
     const ribbons = overlay.current;

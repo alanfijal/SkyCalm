@@ -38,6 +38,7 @@ function dot(level: CabinLevel) {
     <i
       aria-hidden="true"
       className="level-dot"
+      data-level={level}
       style={{
         background: categoryColor(
           level === "unreported" ? "unavailable" : level,
