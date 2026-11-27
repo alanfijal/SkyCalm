@@ -2,6 +2,8 @@
 !grid/
 grid/**
 !grid/*.py
+grid/native.py
+grid/report_shard.py
 !grid/requirements.txt
 !grid/replay/
 !grid/replay/**

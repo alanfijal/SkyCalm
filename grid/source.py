@@ -40,7 +40,7 @@ def url_for(run_id: str, lead: int) -> str:
     return f"{ORIGIN}/gfs.{when:%Y%m%d}/{when:%H}/atmos/gfs.t{when:%H}z.pgrb2.0p25.f{lead:03}"
 
 
-def select_records(index: str, size: int) -> list[Record]:
+def select_records(index: str, size: int, *, fields=FIELDS, byte_limit=MAX_LEAD) -> list[Record]:
     lines = [line.split(":") for line in index.splitlines() if line.strip()]
     if not lines or any(len(row) < 6 for row in lines):
         raise SourceError("Invalid GRIB index")
@@ -50,11 +50,11 @@ def select_records(index: str, size: int) -> list[Record]:
     selected = [
         Record(row[3], row[4], offsets[i], offsets[i + 1] - 1)
         for i, row in enumerate(lines)
-        if (row[3], row[4]) in FIELDS
+        if (row[3], row[4]) in fields
     ]
-    if len(selected) != len(FIELDS) or {(r.field, r.level) for r in selected} != FIELDS:
+    if len(selected) != len(fields) or {(r.field, r.level) for r in selected} != fields:
         raise SourceError("Required weather fields are missing or duplicated")
-    if sum(r.end - r.start + 1 for r in selected) > MAX_LEAD:
+    if sum(r.end - r.start + 1 for r in selected) > byte_limit:
         raise SourceError("Selected weather data exceeds the byte budget")
     return selected
 
@@ -128,13 +128,13 @@ class GfsSource:
                 continue
         raise SourceError("No ready 36-hour forecast among the four most recent cycles")
 
-    def fields(self, run_id: str, lead: int):
+    def fields(self, run_id: str, lead: int, *, fields=FIELDS, byte_limit=MAX_LEAD):
         url = url_for(run_id, lead)
         index, _ = self.get(url + ".idx")
         _, head = self.get(url, method="HEAD")
         headers = {k.lower(): v for k, v in head.items()}
         size, etag = int(headers["content-length"]), headers["etag"]
-        records = select_records(index.decode("ascii"), size)
+        records = select_records(index.decode("ascii"), size, fields=fields, byte_limit=byte_limit)
         digest = hashlib.sha256()
         total = 0
         for record in records:

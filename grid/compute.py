@@ -14,10 +14,19 @@ LATS = np.arange(SOUTH - STEP, NORTH + 2 * STEP, STEP)
 LONS = np.arange(WEST - STEP, EAST + 2 * STEP, STEP)
 ROWS = np.rint((90 - LATS) / STEP).astype(int)
 COLS = np.rint((LONS % 360) / STEP).astype(int)
-FIELD_NUMBERS = {"UGRD": (2, 2), "VGRD": (2, 3), "TMP": (0, 0), "HGT": (3, 5), "CAPE": (7, 6)}
+FIELD_NUMBERS = {
+    "UGRD": (2, 2),
+    "VGRD": (2, 3),
+    "VVEL": (2, 8),
+    "TMP": (0, 0),
+    "HGT": (3, 5),
+    "CAPE": (7, 6),
+}
 
 
-def decode(message: bytes, record: Record, run_id: str, lead: int) -> np.ndarray:
+def decode(
+    message: bytes, record: Record, run_id: str, lead: int, *, rows=ROWS, cols=COLS
+) -> np.ndarray:
     if (
         message[:4] != b"GRIB"
         or message[-4:] != b"7777"
@@ -42,15 +51,15 @@ def decode(message: bytes, record: Record, run_id: str, lead: int) -> np.ndarray
         "dataDate": int(when.strftime("%Y%m%d")),
         "dataTime": when.hour * 100,
         "endStep": lead,
-        "typeOfLevel": "surface" if record.level == "surface" else "isobaricInhPa",
+        "typeOfLevel": "isobaricInhPa" if record.level.endswith(" mb") else record.level,
     }
-    if record.level != "surface":
+    if record.level.endswith(" mb"):
         expected["level"] = int(record.level.split()[0])
     try:
         for key, value in expected.items():
             if ec.codes_get(handle, key) != value:
                 raise SourceError(f"Unexpected {key} for {record.field} at {record.level}")
-        local = ec.codes_get_values(handle).reshape(721, 1440)[np.ix_(ROWS, COLS)]
+        local = ec.codes_get_values(handle).reshape(721, 1440)[np.ix_(rows, cols)]
         if ec.codes_get(handle, "bitmapPresent"):
             local[local == ec.codes_get(handle, "missingValue")] = np.nan
         return local
