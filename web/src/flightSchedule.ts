@@ -1,5 +1,5 @@
 import { config, privateApi } from "./passengerAuth";
-import type { Run } from "./types";
+import { clock, dateLabel, type Run } from "./types";
 
 export interface ScheduleTime {
   utc: string;
@@ -74,23 +74,40 @@ export function forecastIssue(
   live: boolean,
   now: number,
 ): string {
-  if (
-    !f.departure.covered ||
-    !f.arrival.covered ||
-    f.departure.code === f.arrival.code
-  )
+  if (!f.departure.covered || !f.arrival.covered)
     return "Outside the European forecast area.";
+  if (f.departure.code === f.arrival.code)
+    return "The departure and arrival airports are the same.";
   if (["canceled", "cancelled"].includes(f.status.toLowerCase()))
     return "This flight is cancelled.";
+  if (!run) return "No weather forecast is available for this departure.";
+  const timestamp = (iso: string) => `${dateLabel(iso)} at ${clock(iso)} UTC`;
   const when = Date.parse(f.departure.time.utc);
-  if (
-    !run ||
-    when < Date.parse(run.issued) ||
-    when > Date.parse(run.validUntil) ||
-    (live && (when < now - 300000 || now > Date.parse(run.validUntil)))
-  )
-    return "No weather grid covers this departure in the selected forecast source.";
+  if (when > Date.parse(run.validUntil))
+    return `This forecast ends ${timestamp(run.validUntil)}. The flight departs ${timestamp(f.departure.time.utc)}.`;
+  if (when < Date.parse(run.issued))
+    return `This flight departs before this forecast begins on ${timestamp(run.issued)}.`;
+  if (live && (when < now - 300000 || now > Date.parse(run.validUntil)))
+    return "This departure has passed. An archived forecast is needed.";
   return "";
+}
+
+export function scheduleCoverage(
+  f: ScheduledFlight,
+  run: Run | null | undefined,
+  live: boolean,
+  replays: Run[],
+  now: number,
+) {
+  const issue = forecastIssue(f, run, live, now);
+  const replay = issue
+    ? archiveForDeparture(run, live, replays, f.departure.time.utc, now)
+    : undefined;
+  return {
+    issue,
+    replay:
+      replay && !forecastIssue(f, replay, false, now) ? replay : undefined,
+  };
 }
 
 export function localDate(): string {

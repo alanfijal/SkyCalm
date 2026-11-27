@@ -449,7 +449,7 @@ test("flight search resumes after sign-in and saves the selected timetable", asy
   await expect(card).toContainText("Embraer 195");
   await expect(card).toContainText("07:20 local");
   await expect(card).toContainText("06:20 UTC");
-  await expect(card).toContainText("No weather grid");
+  await expect(card).toContainText("This forecast ends");
   expect(searches).toBe(1);
   await card.getByRole("link", { name: "Save to My flights" }).click();
   await expect(
