@@ -1,6 +1,8 @@
 **
 !ml/
 !ml/*.py
+ml/holdout.py
+ml/pireps.py
 !ml/requirements.txt
 !services/
 !services/__init__.py
