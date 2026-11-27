@@ -3,9 +3,8 @@ import { ArrowRight, Search } from "lucide-react";
 import { config, signedIn, signIn } from "./passengerAuth";
 import {
   airportTime,
-  archiveForDeparture,
   findFlights,
-  forecastIssue,
+  scheduleCoverage,
   localDate,
   type ScheduledFlight,
   type LookupResult,
@@ -27,6 +26,8 @@ export { pendingLookup } from "./lookupDraft";
 export default function FlightLookup({
   run,
   live,
+  selected,
+  onMatch,
   onForecast,
   onSave,
   schedulesEnabled,
@@ -35,7 +36,9 @@ export default function FlightLookup({
   run: Run | null | undefined;
   live: boolean;
   onSave?: (f: ScheduledFlight) => void;
-  onForecast?: (f: ScheduledFlight, archiveId?: string) => Promise<void>;
+  selected?: ScheduledFlight | null;
+  onMatch?: (f: ScheduledFlight | null) => void;
+  onForecast?: (f: ScheduledFlight, archiveId?: string) => void;
   replays: Run[];
   schedulesEnabled: boolean;
 }) {
@@ -48,6 +51,7 @@ export default function FlightLookup({
   const revision = useRef(0);
   function reset() {
     revision.current++;
+    onMatch?.(null);
     setResult(null);
     setRecordings([]);
     setError("");
@@ -56,6 +60,7 @@ export default function FlightLookup({
   const search = useCallback(
     async (number: string, date: string, schedule = false) => {
       const current = ++revision.current;
+      onMatch?.(null);
       setBusy(true);
       setResult(null);
       setError("");
@@ -85,7 +90,10 @@ export default function FlightLookup({
           return;
         }
         const response = await findFlights(archived[0]?.number ?? number, date);
-        if (current === revision.current) setResult(response);
+        if (current === revision.current) {
+          setResult(response);
+          if (response.flights.length === 1) onMatch?.(response.flights[0]);
+        }
       } catch (e) {
         if (current === revision.current)
           setError(
@@ -95,7 +103,7 @@ export default function FlightLookup({
         if (current === revision.current) setBusy(false);
       }
     },
-    [],
+    [onMatch],
   );
   useEffect(() => {
     const saved = pendingLookup();
@@ -201,20 +209,14 @@ export default function FlightLookup({
             </p>
           )}
           {result.flights.map((f) => {
-            const now = Date.now();
-            const archived = archiveForDeparture(
+            const { issue, replay } = scheduleCoverage(
+              f,
               run,
               live,
               replays,
-              f.departure.time.utc,
-              now,
+              Date.now(),
             );
-            const reason = forecastIssue(
-              f,
-              archived ?? run,
-              live && !archived,
-              now,
-            );
+            const reason = replay ? "" : issue;
             const recordedLegs = recordingsByNumber(
               f.number,
               f.departure.time.local.slice(0, 10),
@@ -282,28 +284,19 @@ export default function FlightLookup({
                     Past recordings on this route
                   </a>
                 )}
-                {onForecast &&
-                  (reason ? (
-                    <p>{reason}</p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError("");
-                        void onForecast(f, archived?.runId).catch((e) =>
-                          setError(
-                            e instanceof Error
-                              ? e.message
-                              : "Could not load the forecast.",
-                          ),
-                        );
-                      }}
-                    >
-                      {live && !archived
+                {onForecast && reason && <p>{reason}</p>}
+                {onForecast && (selected !== f || replay) && (
+                  <button
+                    type="button"
+                    onClick={() => onForecast(f, replay?.runId)}
+                  >
+                    {reason
+                      ? "Show route"
+                      : live && !replay
                         ? "View forecast"
                         : "View replay forecast"}
-                    </button>
-                  ))}
+                  </button>
+                )}
                 {canSave && onSave && (
                   <button type="button" onClick={() => onSave(f)}>
                     Use this flight

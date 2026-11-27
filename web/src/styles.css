@@ -723,6 +723,14 @@ h2 {
   max-inline-size: 42ch;
   color: var(--text-secondary);
 }
+.scheduled-preview .route-print {
+  height: clamp(10rem, 32svh, 20rem);
+  background: var(--map-water);
+}
+.scheduled-preview .empty-map {
+  min-block-size: auto;
+  padding: 1.25rem var(--pad);
+}
 .empty-icon {
   display: grid;
   place-items: center;

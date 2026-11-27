@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpDown,
@@ -30,7 +23,12 @@ import { RecordingResults } from "./RecordingResults";
 import { recordingsByRoute } from "./recordings";
 import { PlaybackControls, useRoutePlayback } from "./RoutePlayback";
 import { config } from "./passengerAuth";
-import { archiveForDeparture, type ScheduledFlight } from "./flightSchedule";
+import {
+  archiveForDeparture,
+  scheduleCoverage,
+  type ScheduledFlight,
+} from "./flightSchedule";
+import { ScheduledRoutePreview } from "./ScheduledRoutePreview";
 import Timeline from "./Timeline";
 import { ForecastMap } from "./ForecastMap";
 import { FlightSheet } from "./FlightSheet";
@@ -51,6 +49,16 @@ import {
 import type { Airport, Catalog, Forecast, Run } from "./types";
 
 const fmt = (d: Run) => dateLabel(d.issued) + " · " + clock(d.issued) + " UTC";
+type RouteQuery = {
+  origin: string;
+  destination: string;
+  departure: string;
+  run: string;
+  arrival?: string;
+};
+type RouteResult =
+  | { query: RouteQuery; forecast: Forecast; byNumber: boolean }
+  | { query: RouteQuery; error: string };
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
@@ -80,13 +88,61 @@ export default function App() {
   const [origin, setOrigin] = useState<Airport | null>(null);
   const [dest, setDest] = useState<Airport | null>(null);
   const [departure, setDeparture] = useState("");
-  const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [airportQuery, setAirportQuery] = useState<RouteQuery | null>(null);
+  const [result, setResult] = useState<RouteResult | null>(null);
+  const [catalogError, setCatalogError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const submitted = useRef<RouteQuery | null>(null);
+  const meta =
+    source === "latest"
+      ? catalog?.latest
+      : catalog?.replays.find((r) => r.runId === source);
+  const coverage = selectedFlight
+    ? scheduleCoverage(
+        selectedFlight,
+        meta,
+        source === "latest",
+        catalog?.replays ?? [],
+        Date.now(),
+      )
+    : undefined;
+  const reason = coverage?.issue ?? "";
+  const query = useMemo<RouteQuery | null>(() => {
+    if (!byNumber) return airportQuery;
+    if (!selectedFlight || !source || reason) return null;
+    return {
+      origin: selectedFlight.departure.code,
+      destination: selectedFlight.arrival.code,
+      departure: selectedFlight.departure.time.utc,
+      ...(selectedFlight.arrival.time && {
+        arrival: selectedFlight.arrival.time.utc,
+      }),
+      run: source,
+    };
+  }, [byNumber, airportQuery, selectedFlight, source, reason]);
+  const current = result?.query === query ? result : null;
+  // Keep the open globe and layer controls when refreshing the same airport pair.
+  const previousAirportForecast =
+    !byNumber &&
+    !current &&
+    result &&
+    "forecast" in result &&
+    !result.byNumber &&
+    query?.origin === result.query.origin &&
+    query.destination === result.query.destination
+      ? result.forecast
+      : null;
+  const forecast =
+    current && "forecast" in current
+      ? current.forecast
+      : previousAirportForecast;
+  const error =
+    catalogError || (current && "error" in current ? current.error : "");
+  const loading = !error && (!catalog || (!!query && !current));
   const [point, setPoint] = useState(0);
   const playback = useRoutePlayback(forecast?.samples, point, setPoint);
   const stopPlayback = playback.stop;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
   const [layerChoice, setLayerChoice] = useState<LayerChoice>({
     sigmet: false,
     report: false,
@@ -109,63 +165,47 @@ export default function App() {
     forecast && weather.data
       ? nearby(visibleWeather, forecast.samples[point])
       : null;
-  const flightRequest = useRef<AbortController | null>(null);
-
-  const load = useCallback(
-    async (
-      from: Airport,
-      to: Airport,
-      when: string,
-      run: string,
-      schedule?: ScheduledFlight,
-    ) => {
-      flightRequest.current?.abort();
-      stopPlayback();
-      const ctrl = new AbortController();
-      flightRequest.current = ctrl;
-      setLoading(true);
-      setError("");
-      try {
-        const f = await getJson<Forecast>(
-          "/api/forecast",
-          {
-            origin: from.code,
-            destination: to.code,
-            departure: schedule?.departure.time.utc ?? when + ":00Z",
-            ...(schedule?.arrival.time
-              ? { arrival: schedule.arrival.time.utc }
-              : {}),
-            run,
-            wind: "1",
-          },
-          ctrl.signal,
-        );
-        if (!ctrl.signal.aborted) {
-          setForecast(f);
-          setSelectedFlight(schedule ?? null);
-          setPoint(Math.floor((f.samples.length - 1) / 2));
-          return true;
-        }
-      } catch (e) {
-        if (!ctrl.signal.aborted) {
-          setForecast(null);
-          setError(
-            e instanceof Error
-              ? e.message
-              : "The forecast could not be loaded.",
-          );
-        }
-      } finally {
-        if (!ctrl.signal.aborted) setLoading(false);
-      }
-      return false;
-    },
-    [stopPlayback],
-  );
+  useEffect(() => {
+    stopPlayback();
+    if (!query) return;
+    const ctrl = new AbortController();
+    void getJson<Forecast>(
+      "/api/forecast",
+      { ...query, wind: "1" },
+      ctrl.signal,
+    )
+      .then((f) => {
+        if (ctrl.signal.aborted) return;
+        setPoint(Math.floor((f.samples.length - 1) / 2));
+        setResult({ query, forecast: f, byNumber });
+        if (submitted.current === query) setEditing(false);
+      })
+      .catch((e) => {
+        if (!ctrl.signal.aborted)
+          setResult({
+            query,
+            error:
+              e instanceof Error
+                ? e.message
+                : "The forecast could not be loaded.",
+          });
+      });
+    return () => ctrl.abort();
+  }, [query, retry, stopPlayback, byNumber]);
+  useLayoutEffect(() => {
+    if (
+      current &&
+      "forecast" in current &&
+      current.query === submitted.current
+    ) {
+      submitted.current = null;
+      if (editButton.current?.offsetWidth)
+        editButton.current.focus({ preventScroll: true });
+    }
+  }, [current]);
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true);
-    setError("");
+    setCatalogError("");
     Promise.all([
       getJson<Catalog>("/api/runs", {}, ctrl.signal),
       getJson<{ airports: Airport[] }>("/api/airports", {}, ctrl.signal),
@@ -178,7 +218,6 @@ export default function App() {
           throw new Error("The airport directory is unavailable.");
         setOrigin(from);
         setDest(to);
-        setCatalog(c);
         const live =
           !!c.latest &&
           Date.parse(c.latest.validUntil) > Date.parse(c.serverTime) + 5400000;
@@ -186,21 +225,25 @@ export default function App() {
         if (!run) throw new Error("No weather run is available yet.");
         const choice = live ? "latest" : run.runId;
         const when = defaultDeparture(run, live, c.serverTime);
+        setCatalog(c);
         setSource(choice);
         setDeparture(when);
-        return load(from, to, when, choice);
+        setAirportQuery({
+          origin: from.code,
+          destination: to.code,
+          departure: when + ":00Z",
+          run: choice,
+        });
       })
       .catch((e) => {
         if (!ctrl.signal.aborted) {
-          setError(e instanceof Error ? e.message : "The app could not load.");
-          setLoading(false);
+          setCatalogError(
+            e instanceof Error ? e.message : "The app could not load.",
+          );
         }
       });
-    return () => {
-      ctrl.abort();
-      flightRequest.current?.abort();
-    };
-  }, [attempt, load]);
+    return () => ctrl.abort();
+  }, [attempt]);
   function switchSource(selection: string) {
     if (!catalog) return;
     const run =
@@ -208,43 +251,31 @@ export default function App() {
         ? catalog.latest
         : catalog.replays.find((r) => r.runId === selection);
     if (!run) return;
+    setSource(selection);
+    if (byNumber) return;
     const when = defaultDeparture(
       run,
       selection === "latest",
       catalog.serverTime,
     );
-    setSource(selection);
     setDeparture(when);
-    if (origin && dest) void load(origin, dest, when, selection);
+    if (origin && dest)
+      setAirportQuery({
+        origin: origin.code,
+        destination: dest.code,
+        departure: when + ":00Z",
+        run: selection,
+      });
   }
-  async function useSchedule(f: ScheduledFlight, archiveId?: string) {
-    const [from, to] = await Promise.all(
-      [f.departure, f.arrival].map(async (stop) => {
-        const result = await getJson<{ airports: Airport[] }>("/api/airports", {
-          q: stop.code,
-        });
-        const airport = result.airports.find((a) => a.code === stop.code);
-        if (!airport)
-          throw Error("The airport is outside the forecast directory.");
-        return airport;
-      }),
-    );
-    const when = f.departure.time.utc.slice(0, 16);
-    setOrigin(from);
-    setDest(to);
-    setDeparture(when);
+  function selectSchedule(f: ScheduledFlight, archiveId?: string) {
+    setSelectedFlight(f);
     if (archiveId) setSource(archiveId);
-    if (await load(from, to, when, archiveId ?? source, f)) setEditing(false);
   }
   const dirty =
     forecast &&
     (forecast.origin.code !== origin?.code ||
       forecast.destination.code !== dest?.code ||
       forecast.departure.slice(0, 16) !== departure);
-  const meta =
-    source === "latest"
-      ? catalog?.latest
-      : catalog?.replays.find((r) => r.runId === source);
   const formExpanded = editing || (!forecast && !loading);
   const routeRecordings = recordingsByRoute(origin?.code, dest?.code);
   const themeAction =
@@ -403,6 +434,8 @@ export default function App() {
                 type="button"
                 aria-pressed={!byNumber}
                 onClick={() => {
+                  setSelectedFlight(null);
+                  if (airportQuery) setSource(airportQuery.run);
                   setByNumber(false);
                   setEditing(true);
                 }}
@@ -413,6 +446,7 @@ export default function App() {
                 type="button"
                 aria-pressed={byNumber}
                 onClick={() => {
+                  submitted.current = null;
                   setByNumber(true);
                   setEditing(true);
                 }}
@@ -425,7 +459,9 @@ export default function App() {
                 <FlightLookup
                   run={meta}
                   live={source === "latest"}
-                  onForecast={useSchedule}
+                  selected={selectedFlight}
+                  onMatch={setSelectedFlight}
+                  onForecast={selectSchedule}
                   schedulesEnabled={lookupEnabled}
                   replays={catalog?.replays ?? []}
                 />
@@ -433,7 +469,7 @@ export default function App() {
             ) : (
               <form
                 id="flight-form"
-                onSubmit={async (e) => {
+                onSubmit={(e) => {
                   e.preventDefault();
                   if (!origin || !dest || !departure || !source) return;
                   const archive = archiveForDeparture(
@@ -444,18 +480,14 @@ export default function App() {
                     Date.now(),
                   );
                   if (archive) setSource(archive.runId);
-                  if (
-                    await load(
-                      origin,
-                      dest,
-                      departure,
-                      archive?.runId ?? source,
-                    )
-                  ) {
-                    setEditing(false);
-                    if (editButton.current?.offsetWidth)
-                      editButton.current.focus({ preventScroll: true });
-                  }
+                  const next = {
+                    origin: origin.code,
+                    destination: dest.code,
+                    departure: departure + ":00Z",
+                    run: archive?.runId ?? source,
+                  };
+                  submitted.current = next;
+                  setAirportQuery(next);
                 }}
               >
                 <div className="airport-pair">
@@ -550,6 +582,7 @@ export default function App() {
                 </span>
               </div>
               {forecast &&
+                !loading &&
                 (!selectedFlight ||
                   Date.parse(selectedFlight.departure.time.utc) >
                     Date.now()) && (
@@ -570,34 +603,55 @@ export default function App() {
           <section
             className="map-card card"
             aria-label="Flight map"
+            aria-busy={loading}
             data-awaiting-route={!forecast && loading && !error}
           >
-            {forecast ? (
-              <>
-                <div className="map-title">
-                  <div>
-                    {selectedFlight && (
-                      <p className="scheduled-route-note">
-                        {selectedFlight.number} · Estimated great-circle route ·
-                        Cruise up to 35,000 ft
-                      </p>
-                    )}
-                    <div className="route-codes">
-                      <strong>{forecast.origin.code}</strong>
-                      <ArrowRight size={20} />
-                      <strong>{forecast.destination.code}</strong>
-                    </div>
-                    <p>
-                      {city(forecast.origin)} to {city(forecast.destination)}
+            {(forecast || selectedFlight) && (
+              <div className="map-title">
+                <div>
+                  {previousAirportForecast && (
+                    <p role="status">Updating forecast…</p>
+                  )}
+                  {selectedFlight && (
+                    <p className="scheduled-route-note">
+                      {selectedFlight.number} ·{" "}
+                      {forecast
+                        ? "Estimated great-circle route · Cruise up to 35,000 ft"
+                        : "Scheduled route"}
                     </p>
+                  )}
+                  <div className="route-codes">
+                    <strong>
+                      {selectedFlight?.departure.code ?? forecast?.origin.code}
+                    </strong>
+                    <ArrowRight size={20} />
+                    <strong>
+                      {selectedFlight?.arrival.code ??
+                        forecast?.destination.code}
+                    </strong>
                   </div>
+                  <p>
+                    {forecast
+                      ? city(forecast.origin)
+                      : selectedFlight?.departure.name}{" "}
+                    to{" "}
+                    {forecast
+                      ? city(forecast.destination)
+                      : selectedFlight?.arrival.name}
+                  </p>
+                </div>
+                {forecast && (
                   <span className="route-stat">
                     <Plane size={14} />
                     {duration(forecast.durationMinutes)}
                     <i />
                     {forecast.distanceKm.toLocaleString("en-GB")} km
                   </span>
-                </div>
+                )}
+              </div>
+            )}
+            {forecast ? (
+              <>
                 <ForecastMap
                   forecast={forecast}
                   theme={theme}
@@ -632,9 +686,36 @@ export default function App() {
                   />
                 )}
               </>
+            ) : selectedFlight && !loading ? (
+              <ScheduledRoutePreview
+                key={
+                  selectedFlight.departure.code + selectedFlight.arrival.code
+                }
+                flight={selectedFlight}
+                message={
+                  error ||
+                  (coverage?.replay
+                    ? "An archived forecast covers this departure. Select View replay forecast to open it."
+                    : reason)
+                }
+                onRetry={
+                  error
+                    ? () => {
+                        if (catalogError) setAttempt((n) => n + 1);
+                        else {
+                          setResult(null);
+                          setRetry((n) => n + 1);
+                        }
+                      }
+                    : undefined
+                }
+              />
             ) : (
               <div className="empty-map" role={error ? "alert" : undefined}>
-                {!error && <Skeleton label="Loading your route…" />}
+                {loading && <Skeleton label="Loading your route…" />}
+                {!error && !loading && byNumber && (
+                  <p>Find a flight or select a result to see its route.</p>
+                )}
                 {error && (
                   <span className="empty-icon">
                     <Navigation size={26} />
