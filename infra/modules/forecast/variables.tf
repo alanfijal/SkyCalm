@@ -14,7 +14,7 @@ terraform {
 }
 variable "account_id" { type = string }
 variable "image_digest" { type = string }
-variable "lambda_image_digests" { type = object({ python = string, push = string }) }
+variable "lambda_image_digests" { type = object({ python = string }) }
 variable "web_directory" { type = string }
 variable "archive_directory" { type = string }
 variable "enable_edge_waf" {

@@ -96,7 +96,7 @@ export function FlightSummary({
 }
 function ForecastView({
   forecast: f,
-  prefs = { email: false, push: false },
+  prefs = { email: false },
 }: {
   forecast: Forecast | null;
   prefs?: Preferences;

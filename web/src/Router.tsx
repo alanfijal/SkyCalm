@@ -80,14 +80,6 @@ export default function Router() {
       setPath(currentPage());
       window.scrollTo(0, 0);
     };
-    const inbox = (e: MessageEvent) => {
-      if (e.data?.type === "open-inbox") {
-        history.pushState(null, "", "/flights?view=inbox");
-        setPath(currentPage());
-        setVersion((n) => n + 1);
-      }
-    };
-    navigator.serviceWorker?.addEventListener("message", inbox);
     window.addEventListener("popstate", update);
     document.addEventListener("click", anchor);
     const url = new URL(location.href);
@@ -105,7 +97,6 @@ export default function Router() {
       })().catch((e) => setError(e.message));
     }
     return () => {
-      navigator.serviceWorker?.removeEventListener("message", inbox);
       window.removeEventListener("popstate", update);
       document.removeEventListener("click", anchor);
     };

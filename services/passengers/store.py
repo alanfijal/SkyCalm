@@ -13,6 +13,7 @@ from services.passengers.domain import changed
 PACK = TypeSerializer()
 UNPACK = TypeDeserializer()
 LIMIT = 8
+DELIVERY_LEASE_SECONDS = 90
 
 
 def encode(item):
@@ -337,14 +338,42 @@ class PassengerStore:
         except self.db.exceptions.ConditionalCheckFailedException as exc:
             raise conflict() from exc
 
+    def claim_delivery(self, owner, sk, now):
+        # Longer than the 55-second worker timeout and shorter than SQS redelivery.
+        try:
+            row = self.db.update_item(
+                **self.key(owner, sk),
+                ConditionExpression=(
+                    "delivery=:pending AND expiresAt>:now AND "
+                    "(attribute_not_exists(leaseUntil) OR leaseUntil<=:now)"
+                ),
+                UpdateExpression="SET leaseUntil=:until",
+                ExpressionAttributeValues=encode(
+                    {":pending": "pending", ":now": now, ":until": now + DELIVERY_LEASE_SECONDS}
+                ),
+                ReturnValues="ALL_NEW",
+            )
+            return decode(row["Attributes"])
+        except self.db.exceptions.ConditionalCheckFailedException:
+            current = self.get(owner, sk)
+            if current.get("delivery") == "pending" and current.get("expiresAt", 0) > now:
+                raise RuntimeError("Notification delivery in progress") from None
+            return None
+
     def mark_delivery(self, owner, sk, result, stamp, *, sent_body=None):
         try:
             self.db.update_item(
                 **self.key(owner, sk),
-                ConditionExpression="attribute_exists(pk) AND delivery=:p",
-                UpdateExpression="SET delivery=:s, deliveredAt=:t, sentBody=:body",
+                ConditionExpression="delivery=:p AND leaseUntil=:until",
+                UpdateExpression="SET delivery=:s, deliveredAt=:t, sentBody=:body REMOVE leaseUntil",
                 ExpressionAttributeValues=encode(
-                    {":p": "pending", ":s": result, ":t": stamp, ":body": sent_body}
+                    {
+                        ":p": "pending",
+                        ":s": result,
+                        ":t": stamp,
+                        ":until": stamp + DELIVERY_LEASE_SECONDS,
+                        ":body": sent_body,
+                    }
                 ),
             )
         except ClientError as exc:

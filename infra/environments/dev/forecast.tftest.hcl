@@ -1,6 +1,6 @@
 mock_provider "aws" {}
 variables {
-  lambda_image_digests = { python = "sha256:1111111111111111111111111111111111111111111111111111111111111111", push = "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+  lambda_image_digests = { python = "sha256:1111111111111111111111111111111111111111111111111111111111111111" }
   account_id           = "123456789012"
   image_digest         = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
@@ -55,7 +55,7 @@ run "edge_protects_the_actual_forecast" {
 
 run "reject_mutable_lambda_tags" {
   command = plan
-  variables { lambda_image_digests = { python = "latest", push = "latest" } }
+  variables { lambda_image_digests = { python = "latest" } }
   expect_failures = [var.lambda_image_digests]
 }
 

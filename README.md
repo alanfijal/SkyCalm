@@ -76,11 +76,11 @@ Terraform defines an on-demand weather collector, a Glue table with daily partit
 
 ## Passenger accounts
 
-With passenger services enabled, open **My flights** or choose **Save route** on a forecast. Sign in with the invited classroom email or Google, confirm a future UTC departure and choose **Save flight**. The **Account** tab manages browser alerts, email fallback, JSON export and deletion. On iPhone, add SkyCalm to the Home Screen and open it there before enabling push. The public forecast and archived weather remain available to visitors.
+With passenger services enabled, open **My flights** or choose **Save route** on a forecast. Sign in with the invited classroom email or Google, confirm a future UTC departure and choose **Save flight**. Every update appears in **My flights → Notifications**. In **Account → Notifications**, choose **Enable email** to receive a copy through Amazon SES. Quiet hours and alert sensitivity control email delivery. The public forecast and archived weather remain available to visitors.
 
 For a presenter who uses a separate Google account, pass `--login-email` to `scripts/passenger_setup.py`. The invite admits that address. Opted-in email goes to the verified mailbox given by `--classroom-email`. Keep both values in the private environment configuration.
 
-Each passenger can save eight flights. Live grid events reassess departures within 36 hours. A change in peak category or a shift of more than 30 minutes in the first moderate-or-severe section can trigger an alert, with three hours between change alerts per flight. Future 24-hour and 3-hour reminders expire after execution. The authenticated `/demo` page seeds three classroom routes, publishes an archived run and tests delivery. `/health` shows queue counts and the last push accepted for the operator. Both pages require the admin group and scope.
+Each passenger can save eight flights. Live grid events reassess departures within 36 hours. A change in peak category or a shift of more than 30 minutes in the first moderate-or-severe section can trigger an alert, with three hours between change alerts per flight. Future 24-hour and 3-hour reminders expire after execution. The authenticated `/demo` page seeds three classroom routes, publishes an archived run and tests delivery. `/health` shows queue counts and the last email accepted by SES for the operator. A repeat event uses the stored notice and a short delivery lease. If SES accepts an email and the worker stops before saving its receipt, a retry can send a duplicate. Both pages require the admin group and scope.
 
 ## Run a forecast from the operator panel
 
@@ -116,7 +116,6 @@ python -m ruff format --check grid services scripts tests
 python -m ruff check grid services scripts tests
 python -m pytest -q
 bash scripts/lambda_images.sh build
-(cd services/delivery && npm ci --omit=dev --ignore-scripts && npm test)
 python3 scripts/check_lambda_images.py
 (cd web && npm ci && npm run lint && npm test && npm run build)
 (cd web && npx playwright install --only-shell chromium && npm run test:layout)
@@ -128,11 +127,11 @@ for directory in infra/bootstrap infra/environments/dev; do
 done
 ```
 
-These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. Eleven ARM64 functions use the Python target in `services/Dockerfile`. The Web Push sender uses its Node target. The local check invokes both through the AWS runtime emulator with outbound networking disabled. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
+These Terraform tests plan against a mocked AWS provider. CI runs them with the same build inputs. The ARM64 Lambda functions share the Python image in `services/Dockerfile`. The local image check imports the handlers and invokes the forecast through the AWS runtime emulator with outbound networking disabled. To build the grid image locally, run `docker build --platform linux/amd64 -f grid/Dockerfile -t skycalm-grid:local .`. The Linux process has a ten-minute deadline.
 
 **Deployment status.** The public site serves forecasts, archived replays and Aviation Weather Center observations from Stockholm. In the first Phase 3 cloud rehearsal, a click on **Publish replay** rebuilt all 13 forecast steps and updated the 69-point Edinburgh–Porto route in 62.4 seconds. Scheduled discovery is off. Use **Check NOAA for a new run** to admit a new cycle. An on-demand invocation of the observations Lambda (its name is available from the dev `observations_function` output) with an empty JSON object refreshes the observations. When the current forecast exceeds its 36-hour window, the passenger app opens a dated replay.
 
-For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and private ECR repositories, and keep an encrypted backup of bootstrap state. From a clean release commit, build and check both Lambda images, then run `bash scripts/lambda_images.sh publish` using the approved AWS profile. Pass `-var-file="$PWD/build/lambda-images.tfvars.json"` to the dev plan and pin the separate grid image with `TF_VAR_image_digest`. The dev backend uses S3 native locking. To request a specific complete NOAA cycle, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH`. It submits the same admission event as discovery and prints the Step Functions execution ARN. Repeating a cycle uses the same execution name. The planning model runs with `python3 scripts/estimate_cost.py`.
+For another deployment, set the approved account in `TF_VAR_account_id` and check temporary credentials with `bash scripts/check_aws.sh`. Bootstrap the protected state bucket and private ECR repositories, and keep an encrypted backup of bootstrap state. From a clean release commit, build and check the Python Lambda image, then run `bash scripts/lambda_images.sh publish` using the approved AWS profile. Pass `-var-file="$PWD/build/lambda-images.tfvars.json"` to the dev plan and pin the separate grid image with `TF_VAR_image_digest`. The dev backend uses S3 native locking. To request a specific complete NOAA cycle, run `bash scripts/run_grid.sh gfs-YYYYMMDD-HH`. It submits the same admission event as discovery and prints the Step Functions execution ARN. Repeating a cycle uses the same execution name. The planning model runs with `python3 scripts/estimate_cost.py`.
 
 ## Turbulence model evaluation
 

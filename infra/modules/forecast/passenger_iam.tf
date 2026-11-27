@@ -14,7 +14,6 @@ resource "aws_iam_role_policy" "reminders" {
 }
 locals {
   passenger_db = aws_dynamodb_table.passengers.arn
-  push_arn     = "arn:aws:lambda:${local.region}:${var.account_id}:function:${local.passenger_name}-push-img"
   bus_arn      = "arn:aws:events:${local.region}:${var.account_id}:event-bus/${module.pipeline.bus_name}"
   read_flights = { Effect = "Allow", Action = ["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"], Resource = local.passenger_db }
   private_permissions = {
@@ -31,7 +30,6 @@ locals {
       { Effect = "Allow", Action = "dynamodb:Query", Resource = "${local.passenger_db}/index/departures" },
       { Effect = "Allow", Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:SendMessage"], Resource = aws_sqs_queue.passenger_work.arn },
       { Effect = "Allow", Action = "s3:GetObject", Resource = ["${local.weather_arn}/runs/*", "${local.weather_arn}/pipeline/jobs/replay-*/*"] },
-      { Effect = "Allow", Action = "lambda:InvokeFunction", Resource = local.push_arn }
       ], var.passenger_settings.classroom_email == "" ? [] : [{ Effect = "Allow", Action = "ses:SendEmail", Resource = aws_sesv2_email_identity.classroom[0].arn,
     Condition = { StringEquals = { "ses:FromAddress" = var.passenger_settings.classroom_email }, "ForAllValues:StringEquals" = { "ses:Recipients" = [var.passenger_settings.classroom_email] }, Null = { "ses:Recipients" = "false" } } }]),
     stream = [
@@ -42,7 +40,6 @@ locals {
       { Effect = "Allow", Action = ["scheduler:CreateSchedule", "scheduler:GetSchedule", "scheduler:DeleteSchedule"], Resource = "arn:aws:scheduler:${local.region}:${var.account_id}:schedule/${aws_scheduler_schedule_group.passengers.name}/f-*" },
       { Effect = "Allow", Action = "iam:PassRole", Resource = aws_iam_role.reminders.arn, Condition = { StringEquals = { "iam:PassedToService" = "scheduler.amazonaws.com" } } },
     { Effect = "Allow", Action = "sqs:SendMessage", Resource = aws_sqs_queue.passenger_dead.arn }],
-    push = [{ Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = aws_secretsmanager_secret.passenger["vapid"].arn }]
   }
 }
 resource "aws_iam_role_policy" "passenger" {

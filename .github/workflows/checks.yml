@@ -27,8 +27,6 @@ jobs:
           node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci --omit=dev --ignore-scripts && npm test && npm audit --omit=dev --audit-level=high
-        working-directory: services/delivery
       - run: npm ci
         working-directory: web
       - run: npm run lint && npm test && npm run build && npm audit --omit=dev --audit-level=high
@@ -58,9 +56,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build Lambda images from a private checkout
+      - name: Build the Lambda image from a private checkout
         run: |
-          chmod 600 services/forecast/aws.py services/delivery/index.mjs
+          chmod 600 services/forecast/aws.py services/passengers/turbulence.json
           bash scripts/lambda_images.sh build
       - run: python3 scripts/check_lambda_images.py
   training:

@@ -173,59 +173,6 @@ export default function Passengers({
     clearDraft();
     setMessage("Flight saved.");
   }
-  async function push() {
-    if (
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window) ||
-      !("Notification" in window)
-    )
-      throw Error(
-        "On iPhone, add SkyCalm to your Home Screen and open it there to enable notifications.",
-      );
-
-    if (!data?.preferences.push) {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted")
-        throw Error("Notifications are disabled in your browser settings.");
-    }
-    const reg = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () =>
-            reject(
-              Error(
-                "The browser notification service is unavailable. Reopen SkyCalm and try again.",
-              ),
-            ),
-          10000,
-        ),
-      ),
-    ]);
-    let sub = await reg.pushManager.getSubscription();
-    if (data?.preferences.push) {
-      await privateApi(endpoint + "/preferences", "PUT", {
-        channel: "push",
-        subscription: null,
-      });
-      await sub?.unsubscribe();
-    } else {
-      const k = settings?.auth?.vapidPublicKey;
-      if (!k) throw Error("Browser delivery has not been configured.");
-      sub ??= await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: Uint8Array.from(
-          atob(k.replace(/-/g, "+").replace(/_/g, "/")),
-          (c) => c.charCodeAt(0),
-        ),
-      });
-      await privateApi(endpoint + "/preferences", "PUT", {
-        channel: "push",
-        subscription: sub.toJSON(),
-      });
-    }
-    await refresh();
-  }
   async function download() {
     const data = await privateApi(endpoint + "/export");
     const url = URL.createObjectURL(
@@ -351,9 +298,7 @@ export default function Passengers({
               <>
                 <SetupChecklist
                   hasFlight={!!data.flights.length}
-                  notifications={
-                    data.preferences.push || data.preferences.email
-                  }
+                  email={data.preferences.email}
                   add={add}
                   account={() => setTab("account")}
                 />
@@ -508,15 +453,9 @@ export default function Passengers({
                 />
                 <section className="pass-card">
                   <h2>Notifications</h2>
-                  <p>Your route and departure time stay in SkyCalm.</p>
+                  <p>Flight updates always appear in your notification centre.</p>
                   <div className="pass-row">
-                    <span>Browser notifications</span>
-                    <button disabled={busy} onClick={() => action(push)}>
-                      {data.preferences.push ? "Disable push" : "Enable push"}
-                    </button>
-                  </div>
-                  <div className="pass-row">
-                    <span>Classroom email fallback</span>
+                    <span>Email a copy to the verified classroom mailbox</span>
                     <button
                       disabled={busy}
                       onClick={() =>
@@ -538,8 +477,7 @@ export default function Passengers({
                     <span>
                       Show turbulence levels in alerts
                       <small>
-                        Email and browser notifications can then show the level
-                        and how it may feel, even on a locked screen.
+                        Include the forecast level and how it may feel in your email.
                       </small>
                     </span>
                     <input
@@ -664,7 +602,7 @@ function Operator({
     modelVersion?: number | null;
     observationsAsOf?: string | null;
     traffic: string;
-    lastPush: number | null;
+    lastEmail: number | null;
     queues: Record<string, number>;
   }>();
   useEffect(() => {
@@ -760,9 +698,9 @@ function Operator({
             </p>
             <p>Aircraft · {health.traffic}</p>
             <p>
-              Last push accepted ·{" "}
-              {health.lastPush
-                ? time(new Date(health.lastPush * 1000).toISOString())
+              Last email accepted by SES ·{" "}
+              {health.lastEmail
+                ? time(new Date(health.lastEmail * 1000).toISOString())
                 : "No delivery recorded"}
             </p>
             {Object.entries(health.queues).map(([n, v]) => (
@@ -815,8 +753,8 @@ function Operator({
               >
                 Inject test change
               </button>
-              <button disabled={busy} onClick={() => command("push")}>
-                Send test push
+              <button disabled={busy} onClick={() => command("notify")}>
+                Send test notification
               </button>
               <button disabled={busy} onClick={() => command("seed")}>
                 Reset demo flights

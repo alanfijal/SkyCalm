@@ -36,7 +36,6 @@ export interface Notice {
 }
 export interface Preferences {
   email: boolean;
-  push: boolean;
   explainAlerts?: boolean;
   sensitivity?: "all" | "moderate";
   nervousFlyer?: boolean;
@@ -144,5 +143,6 @@ export const noticeNames: Record<string, string> = {
   "reminder-24h": "24 hours until departure",
   "reminder-3h": "3 hours until departure",
   "test-change": "Demo forecast changed",
+  "test-notice": "Test notification",
   "test-push": "Test notification",
 };

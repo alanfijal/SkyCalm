@@ -9,10 +9,10 @@ variable "training_image_digest" {
 }
 variable "lambda_image_digests" {
   description = "Immutable linux/arm64 manifests from skycalm/functions."
-  type        = object({ python = string, push = string })
+  type        = object({ python = string })
   validation {
     condition     = alltrue([for d in var.lambda_image_digests : can(regex("^sha256:[a-f0-9]{64}$", d))])
-    error_message = "Supply the published Python and Web Push manifest digests."
+    error_message = "Supply the published Python Lambda manifest digest."
   }
 }
 variable "image_digest" {
@@ -34,11 +34,10 @@ variable "discovery_window" {
 variable "passenger_settings" {
   type = object({
     google_ready    = bool
-    vapid_public    = string
     classroom_email = string
     login_email     = optional(string)
   })
-  default = { google_ready = false, vapid_public = "", classroom_email = "" }
+  default = { google_ready = false, classroom_email = "" }
 }
 variable "enable_edge_waf" {
   description = "Opt in to the costed CloudFront WAF with a signed public-forecast origin."

@@ -1,9 +1,8 @@
-import io
-import json
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+from botocore.exceptions import ClientError
 
 from services.passengers import admission, api, worker
 from services.passengers.comfort import GUIDE, email_body
@@ -73,8 +72,8 @@ def test_demo_seed_respects_personal_routes_and_replayed_events(store, monkeypat
     assert len(first) == 3 and first == api.view(store, OWNER, T)["flights"]
     f = first[0]
     data = {"owner": OWNER, "slot": 1, "revision": f["revision"], "requestId": str(uuid4())}
-    worker.process(store, worker.CHANGE, data, T, 1)
-    worker.process(store, worker.CHANGE, data, T, 2)
+    worker.process(store, worker.CHANGE, data, T)
+    worker.process(store, worker.CHANGE, data, T)
     assert [n["kind"] for n in api.view(store, OWNER, T)["inbox"]] == ["test-change"]
     save(store, OTHER)
     with pytest.raises(Exception, match="personal flights"):
@@ -101,15 +100,15 @@ def test_real_archived_grid_reaches_only_classroom_inboxes(store, tmp_path):
     with patch.object(
         worker, "enqueue", side_effect=lambda kind, detail: tasks.append((kind, detail))
     ):
-        worker.process(store, READY, job, T, 1)
+        worker.process(store, READY, job, T)
     assert len(tasks) == 3 and all(t[1]["owner"] == OWNER for t in tasks)
     with (
         patch.object(worker.runtime, "weather"),
         patch.object(worker, "StagedGrid", return_value=LocalStore(tmp_path, REPLAY_ROOT)),
     ):
         for kind, data in tasks:
-            worker.process(store, kind, data, T, 1)
-            worker.process(store, kind, data, T, 2)
+            worker.process(store, kind, data, T)
+            worker.process(store, kind, data, T)
     alerts = api.view(store, OWNER, T)["inbox"]
     assert any(n["slot"] == 1 and n["kind"] == "test-change" for n in alerts)
     assert not api.view(store, OTHER, T)["inbox"]
@@ -124,27 +123,43 @@ def test_real_archived_grid_reaches_only_classroom_inboxes(store, tmp_path):
     assert not api.view(store, OWNER, T)["inbox"]
 
 
-def test_push_falls_back_to_opted_in_email_and_duplicate_is_skipped(store, monkeypatch):
-    monkeypatch.setenv("PUSH_FUNCTION", "push")
+def test_email_and_inbox_survive_duplicate_delivery_and_legacy_device(store, monkeypatch):
     monkeypatch.setenv("SES_FROM", "team@example.edu")
-    store.preferences(OWNER, {"device": {"endpoint": "mock"}, "email": "team@example.edu"}, None)
-    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-push", "case", T)
+    monkeypatch.setenv("INBOX_URL", "https://example.org/flights?view=inbox")
+    store.preferences(OWNER, {"device": {"endpoint": "legacy"}, "email": "team@example.edu"}, None)
+    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-notice", "case", T)
     sender = Mock()
-    sender.invoke.return_value = {"Payload": io.BytesIO(b'{"result":"gone"}')}
-    with patch.object(worker.runtime, "client", return_value=sender):
-        worker.deliver(store, OWNER, notice["sk"], T, 1)
-        worker.deliver(store, OWNER, notice["sk"], T + 1, 2)
+    with patch.object(worker.runtime, "client", return_value=sender) as client:
+        worker.deliver(store, OWNER, notice["sk"], T)
+        worker.deliver(store, OWNER, notice["sk"], T + 1)
+    client.assert_called_once_with("sesv2")
     sender.send_email.assert_called_once()
-    msg = sender.send_email.call_args.kwargs
-    assert (
-        store.get(OWNER, notice["sk"])["sentBody"]
-        == msg["Content"]["Simple"]["Body"]["Text"]["Data"]
-    )
-    assert msg["Destination"] == {"ToAddresses": ["team@example.edu"]} and "EDI" not in str(
-        msg["Content"]
+    message = sender.send_email.call_args.kwargs
+    assert message["Content"]["Simple"]["Body"]["Text"]["Charset"] == "UTF-8"
+    inbox = api.view(store, OWNER, T)["inbox"]
+    assert len(inbox) == 1 and inbox[0]["delivery"] == "email"
+    assert inbox[0]["sentBody"] == message["Content"]["Simple"]["Body"]["Text"]["Data"]
+    assert message["Destination"] == {"ToAddresses": ["team@example.edu"]}
+
+
+def test_legacy_push_consent_never_enables_email(store):
+    store.preferences(OWNER, {"device": {"endpoint": "legacy"}}, None)
+    req = {"action": "notify", "requestId": str(uuid4())}
+    event = http("/api/admin/actions", "POST", req, scope=api.ADMIN, groups="[admins]")
+    for _ in range(2):
+        assert api.dispatch(event, store, now=NOW) == {"accepted": True}
+    notices = api.view(store, OWNER, T)["inbox"]
+    assert len(notices) == 1 and notices[0]["kind"] == "test-notice"
+    with patch.object(worker.runtime, "client") as provider:
+        worker.deliver(store, OWNER, "notice#" + notices[0]["noticeId"], T)
+    provider.assert_not_called()
+    assert api.view(store, OWNER, T)["inbox"][0]["delivery"] == "inbox"
+    api.dispatch(
+        http("/api/me/preferences", "PUT", {"channel": "email", "enabled": False}, scope=api.PREF),
+        store,
+        now=NOW,
     )
     assert "device" not in store.get(OWNER, "account")["prefs"]
-    assert store.get(OWNER, notice["sk"])["delivery"] == "email"
 
 
 @pytest.mark.parametrize("level", ["smooth", "light", "moderate", "severe"])
@@ -169,24 +184,40 @@ def test_email_explains_only_the_opted_in_forecast(level):
     assert generic == email_body({"kind": "forecast-change"}, {"explainAlerts": True}, inbox)
 
 
-def test_preference_change_during_push_protects_the_fallback_email(store, monkeypatch):
-    monkeypatch.setenv("PUSH_FUNCTION", "push")
-    monkeypatch.setenv("SES_FROM", "demo@example.edu")
-    prefs = {"device": {"endpoint": "mock"}, "email": "demo@example.edu", "explainAlerts": True}
+def test_transient_email_failure_preserves_inbox_and_rechecks_consent_on_retry(store, monkeypatch):
+    monkeypatch.setenv("SES_FROM", "team@example.edu")
+    monkeypatch.setenv("INBOX_URL", "https://example.org/flights?view=inbox")
+    prefs = {"email": "team@example.edu"}
     store.preferences(OWNER, prefs, None)
-    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-change", "demo", T, peak="moderate")
+    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-notice", "retry", T)
     sender = Mock()
-
-    def retry(**request):
-        assert json.loads(request["Payload"])["level"] == "moderate"
-        store.preferences(OWNER, {**prefs, "explainAlerts": False}, prefs)
-        return {"Payload": io.BytesIO(b'{"result":"retry"}')}
-
-    sender.invoke.side_effect = retry
+    sender.send_email.side_effect = ClientError(
+        {"Error": {"Code": "TooManyRequestsException"}}, "SendEmail"
+    )
     with patch.object(worker.runtime, "client", return_value=sender):
-        worker.deliver(store, OWNER, notice["sk"], T, 3)
-    body = sender.send_email.call_args.kwargs["Content"]["Simple"]["Body"]["Text"]["Data"]
-    assert "moderate" not in body.lower() and GUIDE["seatbelt"] in body
+        with pytest.raises(ClientError):
+            worker.deliver(store, OWNER, notice["sk"], T)
+        assert api.view(store, OWNER, T)["inbox"][0]["delivery"] == "pending"
+        with pytest.raises(RuntimeError, match="in progress"):
+            worker.deliver(store, OWNER, notice["sk"], T + 1)
+        store.preferences(OWNER, {}, prefs)
+        worker.deliver(store, OWNER, notice["sk"], T + 330)
+    sender.send_email.assert_called_once()
+    assert store.get(OWNER, notice["sk"])["delivery"] == "inbox"
+
+
+def test_ses_rejection_keeps_notice_and_stops_retrying(store, monkeypatch):
+    monkeypatch.setenv("SES_FROM", "team@example.edu")
+    monkeypatch.setenv("INBOX_URL", "https://example.org/flights?view=inbox")
+    store.preferences(OWNER, {"email": "team@example.edu"}, None)
+    notice = store.notice({"pk": OWNER, "sk": "account"}, "test-notice", "reject", T)
+    sender = Mock()
+    sender.send_email.side_effect = ClientError({"Error": {"Code": "MessageRejected"}}, "SendEmail")
+    with patch.object(worker.runtime, "client", return_value=sender):
+        worker.deliver(store, OWNER, notice["sk"], T)
+        worker.deliver(store, OWNER, notice["sk"], T + 330)
+    assert api.view(store, OWNER, T)["inbox"][0]["delivery"] == "email-rejected"
+    sender.send_email.assert_called_once()
 
 
 def test_stream_publishes_after_transaction_and_retries_failed_entry(store, monkeypatch):

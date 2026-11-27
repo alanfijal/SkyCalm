@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import guide from "../../services/delivery/turbulence.json" with { type: "json" };
+import guide from "../../services/passengers/turbulence.json" with { type: "json" };
 
 const replay = "gfs-20261124-12";
 

@@ -1,11 +1,10 @@
 variable "passenger_settings" {
   type = object({
     google_ready    = bool
-    vapid_public    = string
     classroom_email = string
     login_email     = optional(string)
   })
-  default = { google_ready = false, vapid_public = "", classroom_email = "" }
+  default = { google_ready = false, classroom_email = "" }
 }
 locals {
   passenger_login_email = trimspace(var.passenger_settings.login_email != null ? var.passenger_settings.login_email : var.passenger_settings.classroom_email)
@@ -15,7 +14,7 @@ locals {
   passenger_scopes      = { "flights.read" = "Read your private flights and inbox", "flights.write" = "Manage your flights and account", "notifications.write" = "Manage your alert preferences", admin = "Operate classroom replays" }
 }
 resource "aws_secretsmanager_secret" "passenger" {
-  for_each                = toset(["google", "vapid"])
+  for_each                = toset(["google"])
   name                    = "${local.name}/passengers/${each.key}"
   recovery_window_in_days = 7
   description             = "SkyCalm passenger provider configuration provisioned outside Terraform"

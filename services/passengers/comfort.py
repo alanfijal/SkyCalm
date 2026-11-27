@@ -1,13 +1,11 @@
-"""Passenger copy shared with the browser and Web Push sender."""
+"""Passenger copy shared with the browser and SES email sender."""
 
 import json
 from pathlib import Path
 
 from services.forecast.schema import CATEGORIES
 
-GUIDE = json.loads(
-    (Path(__file__).resolve().parents[1] / "delivery" / "turbulence.json").read_text()
-)
+GUIDE = json.loads(Path(__file__).with_name("turbulence.json").read_text())
 
 
 def alert_level(notice: dict, prefs: dict) -> str | None:

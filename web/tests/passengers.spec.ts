@@ -32,7 +32,7 @@ async function provider(
       json: {
         apiOrigin: "",
         flightLookup,
-        auth: { domain: login, issuer, clientId, vapidPublicKey: "" },
+        auth: { domain: login, issuer, clientId },
       },
     }),
   );
@@ -126,17 +126,19 @@ test("saved flights and historical inbox updates explain their own levels; deliv
 }) => {
   await provider(page);
   let detailed = false;
+  let email = false;
   let rejectWrite = false;
   await page.route("**/api/me**", async (route) => {
     if (route.request().method() === "PUT") {
       const data = route.request().postDataJSON();
-      expect(data.channel).toBe("explainAlerts");
+      expect(["explainAlerts", "email"]).toContain(data.channel);
       if (rejectWrite)
         return route.fulfill({
           status: 503,
           json: { message: "Try again later." },
         });
-      detailed = data.enabled;
+      if (data.channel === "email") email = data.enabled;
+      else detailed = data.enabled;
     }
     return route.fulfill({
       json: {
@@ -168,7 +170,7 @@ test("saved flights and historical inbox updates explain their own levels; deliv
             delivery: "email",
           },
         ],
-        preferences: { push: false, email: false, explainAlerts: detailed },
+        preferences: { email, explainAlerts: detailed },
       },
     });
   });
@@ -191,6 +193,10 @@ test("saved flights and historical inbox updates explain their own levels; deliv
   await expect(page.getByRole("dialog")).toContainText("Firmer jolts");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Account", exact: true }).click();
+  await expect(page.getByRole("button", { name: /push/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Enable email" }).click();
+  await page.getByRole("button", { name: "Disable email" }).click();
+  await expect(page.getByRole("button", { name: "Enable email" })).toBeVisible();
   const choice = page.getByRole("checkbox", { name: /Show turbulence levels/ });
   await expect(choice).not.toBeChecked();
   // The control reflects the persisted value after the server confirms a write.
@@ -233,7 +239,7 @@ test("a passenger signs in, saves a flight, exports and deletes the account", as
       json: {
         flights: flight ? [flight] : [],
         inbox: [],
-        preferences: { push: false, email: false },
+        preferences: { email: false },
       },
     });
   });
@@ -324,7 +330,7 @@ for (const width of [390, 1280])
           json: {
             flights: [],
             inbox: [],
-            preferences: { push: false, email: false },
+            preferences: { email: false },
           },
         }),
       );
@@ -429,7 +435,7 @@ test("flight search resumes after sign-in and saves the selected timetable", asy
       json: {
         flights: saved ? [saved] : [],
         inbox: [],
-        preferences: { push: false, email: false },
+        preferences: { email: false },
       },
     });
   });
@@ -559,7 +565,6 @@ for (const width of [390, 1280])
             preferences: {
               altitudeUnit: "m",
               nervousFlyer: true,
-              push: true,
               email: false,
             },
           },

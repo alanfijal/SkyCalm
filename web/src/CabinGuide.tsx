@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import guide from "../../services/delivery/turbulence.json";
+import guide from "../../services/passengers/turbulence.json";
 import { categoryColor } from "./theme";
 import "./cabinGuide.css";
 
