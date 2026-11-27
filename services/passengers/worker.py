@@ -7,8 +7,10 @@ import time
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
+from botocore.exceptions import ClientError
+
 from services.forecast.api import respond
-from services.passengers.comfort import alert_level, email_body
+from services.passengers.comfort import email_body
 from services.passengers.domain import snapshot
 from services.passengers.preferences import inbox_only
 from services.passengers.store import PassengerStore, decode, encode
@@ -172,86 +174,49 @@ def score(store, flight, job, now):
     store.record_forecast(flight, marker, assessment, now, test=replay, forecast=forecast)
 
 
-def deliver(store, owner, sk, now, attempt):
-    notice = store.get(owner, sk)
-    account = store.get(owner, "account")
-    if (
-        account.get("erasing")
-        or notice.get("delivery") != "pending"
-        or notice.get("expiresAt", 0) <= now
-    ):
+def deliver(store, owner, sk, now):
+    notice = store.claim_delivery(owner, sk, now)
+    if not notice:
         return
-    if "slot" in notice and store.get(owner, f"flight#{notice['slot']}").get(
-        "revision"
-    ) != notice.get("flightRevision"):
+    account = store.get(owner, "account")
+    if account.get("erasing") or (
+        "slot" in notice
+        and store.get(owner, f"flight#{notice['slot']}").get("revision")
+        != notice.get("flightRevision")
+    ):
         store.mark_delivery(owner, sk, "cancelled", now)
         return
     prefs = account.get("prefs", {})
-    result = "inbox"
-    sent_body = None
-    if inbox_only(notice, prefs, now):
+    if not prefs.get("email") or inbox_only(notice, prefs, now):
         store.mark_delivery(owner, sk, "inbox", now)
         return
-    if prefs.get("device"):
-        invoke = runtime.client("lambda").invoke(
-            FunctionName=os.environ["PUSH_FUNCTION"],
-            Payload=json.dumps(
-                {
-                    "subscription": prefs["device"],
-                    "test": notice["kind"].startswith("test-"),
-                    "tag": notice["noticeId"],
-                    "level": alert_level(notice, prefs),
-                }
-            ).encode(),
-        )
-        if invoke.get("FunctionError"):
-            raise RuntimeError("Push service unavailable")
-        receipt = json.load(invoke["Payload"])
-        result = receipt["result"]
-        sent_body = receipt.get("body") if result == "push" else None
-        if result == "retry" and (attempt < 3 or not prefs.get("email")):
-            raise RuntimeError("Temporary push delivery failure")
-        if result == "gone":
-            try:
-                store.preferences(
-                    owner, {k: v for k, v in prefs.items() if k != "device"}, previous=prefs
-                )
-            except Exception:
-                if store.get(owner, "account").get("prefs") == prefs:
-                    raise
-        if result != "push":
-            # A rejected push can outlive a passenger's delivery preferences.
-            account = store.get(owner, "account")
-            prefs = {} if account.get("erasing") else account.get("prefs", {})
-    if result != "push" and prefs.get("email") and not inbox_only(notice, prefs, now):
-        sent_body = email_body(notice, prefs, os.environ.get("INBOX_URL", ""))
+    body = email_body(notice, prefs, os.environ["INBOX_URL"])
+    try:
         runtime.client("sesv2").send_email(
             FromEmailAddress=os.environ["SES_FROM"],
             Destination={"ToAddresses": [prefs["email"]]},
             Content={
                 "Simple": {
                     "Subject": {"Data": "SkyCalm flight update"},
-                    "Body": {
-                        "Text": {
-                            "Data": sent_body,
-                        }
-                    },
+                    "Body": {"Text": {"Data": body}},
                 }
             },
         )
-        result = "email"
-    store.mark_delivery(
-        owner, sk, "inbox" if result == "gone" else result, now, sent_body=sent_body
-    )
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] != "MessageRejected":
+            raise
+        store.mark_delivery(owner, sk, "email-rejected", now)
+        return
+    store.mark_delivery(owner, sk, "email", now, sent_body=body)
 
 
-def process(store, kind, data, now, attempt):
+def process(store, kind, data, now):
     if kind == READY:
         return watch_page(store, parse_job(data), None, now)
     if kind == "watch":
         return watch_page(store, parse_job(data["job"]), data["cursor"], data["asOf"])
     if kind == NOTICE:
-        return deliver(store, data["owner"], data["sk"], now, attempt)
+        return deliver(store, data["owner"], data["sk"], now)
     if kind not in ("score", "initial-score", "reminder", CHANGE):
         raise ValueError("Unexpected passenger event")
     owner = data["owner"]
@@ -333,7 +298,6 @@ def worker(event, context):
                         packet["detail-type"],
                         packet["detail"],
                         int(time.time()),
-                        int(r.get("attributes", {}).get("ApproximateReceiveCount", "1")),
                     )
                     break
                 except RequestError as exc:

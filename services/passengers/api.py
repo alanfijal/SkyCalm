@@ -14,7 +14,7 @@ from botocore.exceptions import ClientError
 
 from services.forecast.api import RequestError
 from services.forecast.schema import SCORER, utc_text
-from services.passengers.domain import flight_input, identifier, identity, subscription
+from services.passengers.domain import flight_input, identifier, identity
 from services.passengers.journey import detail, flight_or_missing, reminder
 from services.passengers.preferences import DEFAULTS, settings_patch
 from services.passengers.sharing import read_link, set_link
@@ -70,7 +70,6 @@ def public_row(row, fields):
 def public_preferences(prefs: dict) -> dict:
     return {
         **{k: prefs.get(k, v) for k, v in DEFAULTS.items()},
-        "push": bool(prefs.get("device")),
         "email": bool(prefs.get("email")),
         "explainAlerts": prefs.get("explainAlerts") is True,
     }
@@ -165,8 +164,8 @@ def admin_action(path, method, body, owner, store, now, clients):
             "modelVersion": (manifest or {}).get("model", {}).get("version"),
             "observationsAsOf": observation.get("asOfTime"),
             "traffic": "Disabled pending permission",
-            "lastPush": max(
-                (n.get("deliveredAt", 0) for n in notices if n.get("delivery") == "push"),
+            "lastEmail": max(
+                (n.get("deliveredAt", 0) for n in notices if n.get("delivery") == "email"),
                 default=None,
             ),
         }
@@ -187,7 +186,9 @@ def admin_action(path, method, body, owner, store, now, clients):
         json.dumps(
             {
                 "event": "passenger.demo.request",
-                "action": action if action in ("publish", "seed", "change", "push") else "unknown",
+                "action": action
+                if action in ("publish", "seed", "change", "notify")
+                else "unknown",
                 "actor": actor,
                 "requestId": req,
             }
@@ -245,8 +246,8 @@ def admin_action(path, method, body, owner, store, now, clients):
         job = job_spec(body["run"], "replay-" + req.replace("-", ""), "replay")
         send_event(clients("events"), os.environ["PIPELINE_BUS"], AVAILABLE, job)
         return job
-    if action == "push":
-        store.notice({"pk": owner, "sk": "account"}, "test-push", req, epoch)
+    if action == "notify":
+        store.notice({"pk": owner, "sk": "account"}, "test-notice", req, epoch)
         return {"accepted": True}
     if action == "change":
         slot = body.get("slot")
@@ -401,13 +402,11 @@ def dispatch(event, store, clients=runtime.client, now=None):
                 prefs.pop("email", None)
         elif key == "explainAlerts" and isinstance(body.get("enabled"), bool):
             prefs["explainAlerts"] = body["enabled"]
-        elif key == "push" and "subscription" in body:
-            if body["subscription"] is None:
-                prefs.pop("device", None)
-            else:
-                prefs["device"] = subscription(body["subscription"])
         else:
             raise RequestError("invalid_preferences", "Choose a delivery channel.")
+        prefs.pop(
+            "device", None
+        )  # Retire a legacy browser subscription on the next preference write.
         store.preferences(owner, prefs, previous=account.get("prefs"))
         return public_preferences(prefs)
     match = re.fullmatch(r"/api/me/flights/([1-8])", path)

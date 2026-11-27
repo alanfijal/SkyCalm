@@ -1,4 +1,4 @@
-"""Passenger copy shared with the browser and Web Push sender."""
+"""Passenger copy shared with the browser and SES email sender."""
 
 import json
 from pathlib import Path

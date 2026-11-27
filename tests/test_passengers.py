@@ -12,7 +12,7 @@ from PIL import Image
 
 from services.forecast.api import RequestError
 from services.passengers import api, worker
-from services.passengers.domain import changed, flight_input, identity, subscription
+from services.passengers.domain import changed, flight_input, identity
 from services.passengers.store import PassengerStore
 
 NOW = datetime(2026, 11, 25, 12, tzinfo=UTC)
@@ -204,8 +204,8 @@ def test_forecast_outbox_and_three_hour_limit(store):
 def test_retry_and_old_reminder_after_edit(store):
     first = save(store)
     msg = {"owner": OWNER, "slot": 1, "revision": first["revision"], "hours": 24}
-    worker.process(store, "reminder", msg, T, 1)
-    worker.process(store, "reminder", msg, T, 2)
+    worker.process(store, "reminder", msg, T)
+    worker.process(store, "reminder", msg, T)
     assert len(api.view(store, OWNER, T)["inbox"]) == 1
     assert "peak" not in api.view(store, OWNER, T)["inbox"][0]
     api.dispatch(
@@ -215,7 +215,7 @@ def test_retry_and_old_reminder_after_edit(store):
         store,
         now=NOW,
     )
-    worker.process(store, "reminder", {**msg, "hours": 3}, T, 1)
+    worker.process(store, "reminder", {**msg, "hours": 3}, T)
     assert len(api.view(store, OWNER, T)["inbox"]) == 1
 
 
@@ -234,7 +234,7 @@ def test_alert_details_require_explicit_preference_and_notification_scope(store)
         toggle("true")
     with pytest.raises(RequestError):
         toggle(True, api.READ)
-    assert toggle(True) == {**api.DEFAULTS, "push": False, "email": False, "explainAlerts": True}
+    assert toggle(True) == {**api.DEFAULTS, "email": False, "explainAlerts": True}
     assert api.view(store, OTHER, T)["preferences"]["explainAlerts"] is False
     assert toggle(False)["explainAlerts"] is False
 
@@ -312,14 +312,18 @@ def test_preferences_export_erasure_and_replay_guard(store, monkeypatch):
         store.preferences(OWNER, {}, None)
 
 
-def test_ignores_body_identity_and_blocks_unknown_push_endpoint(store):
-    for endpoint in (
-        "http://fcm.googleapis.com/test",
-        "https://example.org/test",
-        "https://fcm.googleapis.com.evil.example/test",
-    ):
-        with pytest.raises(RequestError):
-            subscription({"endpoint": endpoint, "keys": {}})
+def test_rejects_retired_browser_registration_and_ignores_body_identity(store):
+    with pytest.raises(RequestError, match="delivery channel"):
+        api.dispatch(
+            http(
+                "/api/me/preferences",
+                "PUT",
+                {"channel": "push", "subscription": {}},
+                scope=api.PREF,
+            ),
+            store,
+            now=NOW,
+        )
     api.dispatch(
         http("/api/me/flights/1", "PUT", {**inputs(), "owner": OTHER}, scope=api.WRITE),
         store,
@@ -597,7 +601,7 @@ def test_quiet_delivery_stays_inapp_and_keeps_read_flag(store, monkeypatch):
         worker.runtime, "client", lambda _: pytest.fail("Quiet hours must not contact a provider")
     )
     store.set_read(OWNER, notice["noticeId"], True, T)
-    worker.deliver(store, OWNER, notice["sk"], T, 1)
+    worker.deliver(store, OWNER, notice["sk"], T)
     saved = store.get(OWNER, notice["sk"])
     assert saved["delivery"] == "inbox" and saved["isRead"] is True
 
