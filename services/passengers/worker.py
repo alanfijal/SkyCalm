@@ -90,11 +90,11 @@ def stream(event, context):
         d = record["dynamodb"]
         try:
             key = decode(d["Keys"])
-            old = decode(d["OldImage"]) if d.get("OldImage") else None
-            new = decode(d["NewImage"]) if d.get("NewImage") else None
-            if key["sk"].startswith("flight#") and (old or {}).get("revision") != (new or {}).get(
-                "revision"
-            ):
+            if key["sk"].startswith("flight#"):
+                old = decode(d["OldImage"]) if d.get("OldImage") else None
+                new = decode(d["NewImage"]) if d.get("NewImage") else None
+                if (old or {}).get("revision") == (new or {}).get("revision"):
+                    continue
                 live = store.get(key["pk"], key["sk"])
                 if new and (
                     live.get("revision") != new["revision"]
@@ -107,7 +107,7 @@ def stream(event, context):
                         "initial-score",
                         {"owner": new["pk"], "slot": int(new["slot"]), "revision": new["revision"]},
                     )
-            elif new and not old and key["sk"].startswith("notice#"):
+            elif key["sk"].startswith("notice#") and d.get("NewImage") and not d.get("OldImage"):
                 send_event(
                     runtime.client("events"),
                     os.environ["PIPELINE_BUS"],

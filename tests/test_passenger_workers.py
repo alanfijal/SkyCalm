@@ -237,3 +237,32 @@ def test_stream_publishes_after_transaction_and_retries_failed_entry(store, monk
         assert worker.stream(event, None) == {"batchItemFailures": [{"itemIdentifier": "71"}]}
         emitter.put_events.return_value = {"FailedEntryCount": 0, "Entries": [{"EventId": "ok"}]}
         assert worker.stream(event, None) == {"batchItemFailures": []}
+
+
+def test_forecast_snapshot_does_not_block_the_next_inbox_notice(store, monkeypatch):
+    monkeypatch.setenv("PASSENGERS", store.name)
+    monkeypatch.setenv("PIPELINE_BUS", "demo")
+    snapshot_key = encode({"pk": OWNER, "sk": "forecast#flight"})
+    # The Streams JSON envelope carries a base64 string for a binary attribute.
+    snapshot = {**snapshot_key, "payload": {"B": "AA=="}}
+    notice = encode({"pk": OWNER, "sk": "notice#case"})
+    changes = (
+        (snapshot_key, {"NewImage": snapshot}),
+        (snapshot_key, {"OldImage": snapshot, "NewImage": snapshot}),
+        (snapshot_key, {"OldImage": snapshot}),
+        (notice, {"NewImage": notice}),
+        (notice, {"NewImage": notice, "OldImage": notice}),
+        (notice, {"OldImage": notice}),
+    )
+    records = [
+        {"dynamodb": {"Keys": key, "SequenceNumber": str(seq), **images}}
+        for seq, (key, images) in enumerate(changes, start=1)
+    ]
+    with (
+        patch.object(worker.runtime, "client") as client,
+        patch.object(worker, "send_event") as emit,
+    ):
+        assert worker.stream({"Records": records}, None) == {"batchItemFailures": []}
+    emit.assert_called_once_with(
+        client.return_value, "demo", worker.NOTICE, {"owner": OWNER, "sk": "notice#case"}
+    )
